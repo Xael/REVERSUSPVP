@@ -13,7 +13,8 @@ export function connectToServer() {
     // Exemplo: Se seu site é http://meujogo.com, mude a linha abaixo para:
     // const SERVER_URL = "http://meujogo.com:3000";
     //
-    const SERVER_URL = "http://localhost:3000";
+    const SERVER_URL = "https://reversus-node.dke42d.easypanel.host";
+
 
     // O objeto 'io' está disponível globalmente porque incluímos o script socket.io.js no index.html
     const socket = io(SERVER_URL);
