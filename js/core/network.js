@@ -7,12 +7,26 @@ import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
 
 export function connectToServer() {
-    // The 'io' object is available globally because we included the socket.io.js script in index.html
-    const socket = io();
+    // 
+    // PASSO FINAL PARA O ONLINE: 
+    // Mude a URL abaixo para o endereço do seu servidor.
+    // Exemplo: Se seu site é http://meujogo.com, mude a linha abaixo para:
+    // const SERVER_URL = "http://meujogo.com:3000";
+    //
+    const SERVER_URL = "http://localhost:3000";
+
+    // O objeto 'io' está disponível globalmente porque incluímos o script socket.io.js no index.html
+    const socket = io(SERVER_URL);
     updateState('socket', socket);
 
     socket.on('connect', () => {
         console.log('Connected to server with ID:', socket.id);
+    });
+    
+    socket.on('connect_error', (err) => {
+        console.error("Connection failed:", err.message);
+        alert("Falha ao conectar ao servidor PvP. Verifique se o servidor está rodando e se o endereço está correto. O modo offline ainda funciona.");
+        showSplashScreen();
     });
 
     socket.on('connected', (data) => {

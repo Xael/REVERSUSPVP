@@ -9,7 +9,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- 
+      PASSO FINAL PARA O ONLINE: 
+      Mude a URL abaixo para o endereço do seu servidor.
+      Exemplo: Se seu site é http://meujogo.com, mude para http://meujogo.com:3000/socket.io/socket.io.js
+    -->
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script type="module" src="js/core/index.js"></script>
     <script type="module" src="js/core/shortcuts.js"></script>
 <script type="importmap">
@@ -63,7 +68,7 @@
                     <button id="inversus-mode-button" class="control-button btn-inversus-color hidden">INVERSUS</button>
                 </div>
             </div>
-             <div id="version-footer">Versão Final 1.0</div>
+             <div id="version-footer">Versão Final Final 2.0</div>
         </div>
     </div>
 
@@ -104,11 +109,12 @@
     <div id="credits-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2>Créditos</h2>
-            <p>O jogo "Reversus" foi criado por Xael em 2023 com o tema "Corrida para o Altar" em forma de Card Game + Tabuleiro, para recolher fundos para o seu casamento - e agora estamos nesta versão (22/07/2025), lembrando que, ainda em desenvolvimento.</p>
+            <p>O jogo "Reversus" foi criado por Xael em 2023 com o tema "Corrida para o Altar" em forma de Card Game + Tabuleiro, para recolher fundos para o seu casamento - e agora estamos nesta versão (15/08/2025) finalmente com PVP!!!</p>
             <p>Por hora aproveite nesta versão os modos de jogo:</p>
             <ul style="list-style-position: inside; text-align: left; margin: 0.5rem 0;">
                 <li>Partida Rápido</li>
                 <li>Modo História</li>
+                <li>PVP!</li>
             </ul>
             <p>Meus agradecimentos especiais a todos os que apoiaram este projeto desde o início.</p>
             <button id="close-credits-button" class="control-button">Fechar</button>

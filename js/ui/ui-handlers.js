@@ -433,6 +433,11 @@ export function initializeUiHandlers() {
         initializeGame('inversus', { numPlayers: 2, overrides: { 'player-2': { name: 'Inversus', aiType: 'inversus' } } });
     });
     dom.pvpModeButton.addEventListener('click', () => {
+        const { isConnectionAttempted } = getState();
+        if (!isConnectionAttempted) {
+            updateState('isConnectionAttempted', true);
+            network.connectToServer();
+        }
         sound.initializeMusic();
         dom.pvpUsernameModal.classList.remove('hidden');
     });

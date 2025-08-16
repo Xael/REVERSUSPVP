@@ -3,13 +3,9 @@ import { showSplashScreen } from '../ui/splash-screen.js';
 import { setupPvpRooms } from '../game-controller.js';
 import { checkForSavedGame } from './save-load.js';
 import { loadAchievements } from './achievements.js';
-import { connectToServer } from './network.js';
 
 // This is the main entry point of the application.
 document.addEventListener('DOMContentLoaded', () => {
-    // Connect to the WebSocket server for real-time communication
-    connectToServer();
-
     // Sets up all the button clicks and other user interactions.
     initializeUiHandlers();
 

@@ -1,6 +1,3 @@
-
-
-
 import * as config from './core/config.js';
 import * as dom from './core/dom.js';
 import { getState, updateState } from './core/state.js';
@@ -19,7 +16,7 @@ import { createSpiralStarryBackground, clearInversusScreenEffects } from './ui/a
  * Updates the in-game timer display, handling normal and countdown modes.
  */
 export const updateGameTimer = () => {
-    const { gameStartTime, gameState, gameTimerInterval } from getState();
+    const { gameStartTime, gameState, gameTimerInterval } = getState();
     if (!gameStartTime || !gameState) return;
     
     const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
@@ -357,8 +354,9 @@ export function restartLastDuel() {
     dom.gameOverModal.classList.add('hidden');
     dom.cosmicGlowOverlay.classList.add('hidden');
 
-    // Call initializeGame with the saved options
-    const { mode, options } = lastStoryGameOptions;
+    // Call initializeGame with the saved options (robust access)
+    const mode = lastStoryGameOptions.mode;
+    const options = lastStoryGameOptions.options;
     initializeGame(mode, options);
 }
 
