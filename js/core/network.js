@@ -15,7 +15,6 @@ export function connectToServer() {
     //
     const SERVER_URL = "https://reversus-node.dke42d.easypanel.host";
 
-
     // O objeto 'io' está disponível globalmente porque incluímos o script socket.io.js no index.html
     const socket = io(SERVER_URL);
     updateState('socket', socket);
