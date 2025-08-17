@@ -20,28 +20,47 @@ import { renderRankingModal } from './ranking-renderer.js';
 
 /**
  * Initializes the Google Sign-In button and handles the authentication callback.
+ * This function now polls for the Google library to avoid race conditions.
+ * @param {number} [tries=0] - Internal counter for retry attempts.
  */
-function initializeGoogleSignIn() {
+function initializeGoogleSignIn(tries = 0) {
     // Adicione o seu Google Client ID aqui. Por segurança, em um projeto real,
     // isso viria de uma variável de ambiente.
     const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 
     if (typeof google === 'undefined') {
-        console.error("Google Sign-In script not loaded.");
+        if (tries > 50) { // Tenta por 5 segundos
+            console.error("Google Sign-In script failed to load in time.");
+            alert("Não foi possível carregar a funcionalidade de login. Por favor, verifique sua conexão e tente recarregar a página.");
+            if (dom.googleSigninButton) {
+                dom.googleSigninButton.innerHTML = '<button class="control-button" disabled>Login Indisponível</button>';
+            }
+            return;
+        }
+        // Se não carregou, espera e tenta novamente.
+        setTimeout(() => initializeGoogleSignIn(tries + 1), 100);
         return;
     }
 
-    google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredentialResponse
-    });
+    try {
+        google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse
+        });
 
-    google.accounts.id.renderButton(
-        dom.googleSigninButton,
-        { theme: "outline", size: "large", type: "standard", text: "signin_with" }
-    );
-    // google.accounts.id.prompt(); // Opcional: exibe o pop-up de login automaticamente
+        google.accounts.id.renderButton(
+            dom.googleSigninButton,
+            { theme: "outline", size: "large", type: "standard", text: "signin_with" }
+        );
+    } catch (error) {
+        console.error("Error initializing Google Sign-In:", error);
+        alert("Ocorreu um erro ao inicializar o login com o Google.");
+        if (dom.googleSigninButton) {
+            dom.googleSigninButton.innerHTML = '<button class="control-button" disabled>Erro no Login</button>';
+        }
+    }
 }
+
 
 /**
  * Handles the response from Google Sign-In, sending the token to the server.
