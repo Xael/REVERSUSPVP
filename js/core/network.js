@@ -69,26 +69,29 @@ export function connectToServer() {
         };
         updateState('gameState', clientGameState);
         
-        // Inicia o timer do jogo no cliente
+        // Inicia o timer e o chat do jogo no cliente
         const state = getState();
         if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
         updateState('gameStartTime', Date.now());
         updateGameTimer();
         updateState('gameTimerInterval', setInterval(updateGameTimer, 1000));
+        dom.chatInputArea.classList.remove('hidden');
 
 
         // --- LÓGICA DE PERSPECTIVA DO JOGADOR ---
         const playerIds = clientGameState.playerIdsInGame;
         const myIndex = playerIds.indexOf(myPlayerId);
         
-        // Rotaciona a lista de jogadores para que o jogador atual sempre seja o primeiro
+        // Rotaciona a lista de jogadores para que o jogador atual sempre seja o primeiro na renderização
         const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
 
         const player1Container = document.getElementById('player-1-area-container');
         const opponentsContainer = document.getElementById('opponent-zones-container');
         const createPlayerAreaHTML = (id) => `<div class="player-area" id="player-area-${id}"></div>`;
         
+        // O primeiro da lista ordenada é sempre "eu", que vai para a área de baixo
         player1Container.innerHTML = createPlayerAreaHTML(orderedPlayerIds[0]);
+        // O resto são os oponentes, que vão para a direita
         opponentsContainer.innerHTML = orderedPlayerIds.slice(1).map(id => createPlayerAreaHTML(id)).join('');
 
         renderAll();
@@ -113,6 +116,10 @@ export function connectToServer() {
     
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
+    });
+    
+    socket.on('chatMessage', ({ speaker, message }) => {
+        updateLog({ type: 'dialogue', speaker, message });
     });
 
     socket.on('playerDisconnected', ({ playerId, username }) => {
