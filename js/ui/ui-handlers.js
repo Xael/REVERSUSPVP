@@ -14,6 +14,7 @@ import * as config from '../core/config.js';
 import * as network from '../core/network.js';
 import { createCosmicGlowOverlay, shatterImage } from './animations.js';
 import { announceEffect } from '../core/sound.js';
+import { playCard } from '../game-logic/player-actions.js';
 
 /**
  * Resets the game state after a player cancels an action modal.
@@ -71,6 +72,7 @@ async function handlePlayButtonClick() {
     dom.playButton.disabled = true;
 
     const { gameState, playerId } = getState();
+    const player = gameState.players[playerId];
     const card = gameState.selectedCard;
 
     if (!card) {
@@ -78,28 +80,12 @@ async function handlePlayButtonClick() {
         return;
     }
 
-    // In PvP, we always emit to the server. For other modes, we handle targeting locally first.
-    if (gameState.isPvp) {
-         if (card.type === 'value') {
-            network.emitPlayCard({ cardId: card.id, targetId: playerId });
-        } else {
-            // All effect cards in PvP will go through the standard targeting flow
-            gameState.gamePhase = 'targeting';
-            dom.targetModalCardName.textContent = card.name;
-            dom.targetPlayerButtonsEl.innerHTML = gameState.playerIdsInGame
-                .map(id => {
-                    const player = gameState.players[id];
-                    if (player.isEliminated) return '';
-                    return `<button class="control-button target-player-${id.split('-')[1]}" data-player-id="${id}">${player.name}</button>`;
-                })
-                .join('');
-            dom.targetModal.classList.remove('hidden');
-        }
-        return;
-    }
-
     if (card.type === 'value') {
-        network.emitPlayCard({ cardId: card.id, targetId: playerId });
+        if (gameState.isPvp) {
+            network.emitPlayCard({ cardId: card.id, targetId: player.id });
+        } else {
+            playCard(player, card, player.id);
+        }
     } else if (card.name === 'Reversus Total') {
         dom.reversusTotalChoiceModal.classList.remove('hidden');
     } else if (['Mais', 'Menos', 'Sobe', 'Desce', 'Reversus', 'Pula', 'Carta da Versatrix'].includes(card.name)) {
@@ -117,7 +103,8 @@ async function handlePlayButtonClick() {
 }
 
 async function handlePlayerTargetSelection(targetId) {
-    const { gameState, playerId } = getState();
+    const { gameState } = getState();
+    const player = gameState.players[gameState.currentPlayer];
     
     if (getState().reversusTotalIndividualFlow) {
         dom.targetModal.classList.add('hidden');
@@ -132,7 +119,6 @@ async function handlePlayerTargetSelection(targetId) {
     const card = gameState.selectedCard;
     dom.targetModal.classList.add('hidden');
     
-    // Handle special card flows locally before emitting
     if (card.name === 'Reversus') {
         gameState.reversusTarget = { card, targetPlayerId: targetId };
         gameState.gamePhase = 'reversus_targeting';
@@ -147,14 +133,17 @@ async function handlePlayerTargetSelection(targetId) {
         }
         gameState.pulaTarget = { card, targetPlayerId: targetId };
         handlePulaCasterChoice(card, targetId);
-    } else if (card.name === 'Reversus Total') { // This case is for Individual Lock flow
+    } else if (card.name === 'Reversus Total') {
          gameState.reversusTarget = { card, targetPlayerId: targetId };
          gameState.gamePhase = 'reversus_targeting';
          dom.reversusIndividualEffectChoiceModal.classList.remove('hidden');
          updateActionButtons();
     } else {
-        // For simple cards like 'Mais', 'Menos', etc., emit directly.
-        network.emitPlayCard({ cardId: card.id, targetId });
+        if (gameState.isPvp) {
+            network.emitPlayCard({ cardId: card.id, targetId });
+        } else {
+            playCard(player, card, targetId);
+        }
     }
 }
 
@@ -183,6 +172,7 @@ async function handlePulaPathSelection(chosenPathId) {
     if (!gameState.pulaTarget) return;
 
     const { card, targetPlayerId } = gameState.pulaTarget;
+    const player = gameState.players[gameState.currentPlayer];
     
     dom.pulaModal.classList.add('hidden');
     
@@ -191,25 +181,41 @@ async function handlePulaPathSelection(chosenPathId) {
         targetPath: chosenPathId
     };
 
-    network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options });
+    if (gameState.isPvp) {
+         network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options });
+    } else {
+        const target = gameState.players[targetPlayerId];
+        target.targetPathForPula = chosenPathId;
+        playCard(player, card, targetPlayerId);
+    }
 }
 
 async function handleReversusEffectTypeSelection(effectTypeToReverse) {
     const { gameState } = getState();
     if (!gameState.reversusTarget) return;
     const { card, targetPlayerId } = gameState.reversusTarget;
+    const player = gameState.players[gameState.currentPlayer];
     dom.reversusTargetModal.classList.add('hidden');
     
-    network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { type: effectTypeToReverse } });
+    if (gameState.isPvp) {
+        network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { type: effectTypeToReverse } });
+    } else {
+        playCard(player, card, targetPlayerId, effectTypeToReverse);
+    }
 }
 
 async function handleReversusTotalChoice(isGlobal) {
     const { gameState, playerId } = getState();
+    const player = gameState.players[playerId];
     const card = gameState.selectedCard;
     dom.reversusTotalChoiceModal.classList.add('hidden');
 
     if (isGlobal) {
-        network.emitPlayCard({ cardId: card.id, targetId: playerId, options: { isGlobal: true } });
+        if (gameState.isPvp) {
+            network.emitPlayCard({ cardId: card.id, targetId: player.id, options: { isGlobal: true } });
+        } else {
+            playCard(player, card, player.id, null, { isGlobal: true });
+        }
     } else {
         updateState('reversusTotalIndividualFlow', true);
         gameState.gamePhase = 'targeting';
@@ -230,6 +236,7 @@ async function handleIndividualEffectLock(effectName) {
     if (!gameState.reversusTarget) return;
 
     const { card, targetPlayerId } = gameState.reversusTarget;
+    const player = gameState.players[gameState.currentPlayer];
     dom.reversusIndividualEffectChoiceModal.classList.add('hidden');
 
     if (effectName === 'Pula') {
@@ -242,7 +249,12 @@ async function handleIndividualEffectLock(effectName) {
         gameState.pulaTarget = { card, targetPlayerId };
         handlePulaCasterChoice(card, targetPlayerId);
     } else {
-        network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { isIndividualLock: true, effectNameToApply: effectName } });
+        const options = { isIndividualLock: true, effectNameToApply: effectName };
+        if (gameState.isPvp) {
+            network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options });
+        } else {
+            playCard(player, card, targetPlayerId, null, options);
+        }
     }
 }
 
@@ -450,6 +462,12 @@ export function initializeUiHandlers() {
     });
     
     document.addEventListener('storyWinLoss', handleStoryWinLoss);
+    
+    // This custom event is fired by the AI controller after its turn.
+    // This prevents a circular dependency between the AI and the turn manager.
+    document.addEventListener('aiTurnEnded', () => {
+         import('../game-logic/turn-manager.js').then(module => module.advanceToNextPlayer());
+    });
 
 
     // Splash Screen
@@ -464,7 +482,7 @@ export function initializeUiHandlers() {
         initializeGame('inversus', { numPlayers: 2, overrides: { 'player-2': { name: 'Inversus', aiType: 'inversus' } } });
     });
     dom.pvpModeButton.addEventListener('click', () => {
-        dom.splashScreenEl.classList.add('hidden'); // CORREÇÃO: Esconde o menu principal
+        dom.splashScreenEl.classList.add('hidden'); 
         const { isConnectionAttempted } = getState();
         if (!isConnectionAttempted) {
             updateState('isConnectionAttempted', true);
@@ -529,7 +547,24 @@ export function initializeUiHandlers() {
 
     // In-Game actions
     dom.playButton.addEventListener('click', handlePlayButtonClick);
-    dom.endTurnButton.addEventListener('click', network.emitEndTurn);
+    dom.endTurnButton.addEventListener('click', () => {
+        const { gameState } = getState();
+        if (gameState.isPvp) {
+            network.emitEndTurn();
+        } else {
+             import('../game-logic/turn-manager.js').then(module => {
+                const player = gameState.players[gameState.currentPlayer];
+                const valueCardsInHandCount = player.hand.filter(c => c.type === 'value').length;
+                const mustPlayValueCard = valueCardsInHandCount > 1 && !player.playedValueCardThisTurn;
+                if (mustPlayValueCard) {
+                    alert("Você precisa jogar uma carta de valor neste turno!");
+                    return;
+                }
+                gameState.consecutivePasses++;
+                module.advanceToNextPlayer();
+             });
+        }
+    });
 
     dom.appContainerEl.addEventListener('click', (e) => {
         const cardElement = e.target.closest('.card');

@@ -1,7 +1,7 @@
 // js/core/network.js
 import { getState, updateState } from './state.js';
 import * as dom from './dom.js';
-import { renderAll, showGameOver } from './ui-renderer.js';
+import { renderAll, showGameOver } from '../ui/ui-renderer.js';
 import { renderPvpRooms, updateLobbyUi, addLobbyChatMessage } from '../ui/lobby-renderer.js';
 import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
@@ -55,13 +55,12 @@ export function connectToServer() {
         dom.debugButton.classList.remove('hidden');
         dom.chatInputArea.classList.remove('hidden');
 
-        // The server is the source of truth. We just need to add local UI state.
         const myPlayerId = serverGameState.myPlayerId;
         updateState('playerId', myPlayerId);
 
         const clientGameState = {
             ...serverGameState,
-            isPvp: true, // Mark this as a PvP game
+            isPvp: true,
             selectedCard: null,
             reversusTarget: null,
             pulaTarget: null,
@@ -76,9 +75,9 @@ export function connectToServer() {
         updateState('gameTimerInterval', setInterval(updateGameTimer, 1000));
         
         // --- PLAYER PERSPECTIVE LOGIC ---
+        // This logic ensures the local player is always at the bottom of the screen
         const playerIds = clientGameState.playerIdsInGame;
         const myIndex = playerIds.indexOf(myPlayerId);
-        
         const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
 
         const player1Container = document.getElementById('player-1-area-container');
@@ -97,7 +96,7 @@ export function connectToServer() {
 
     socket.on('gameStateUpdate', (newServerState) => {
         const { gameState, playerId } = getState();
-        if (!gameState) return; // Don't update if not in a game
+        if (!gameState) return; 
 
         // Preserve local UI state while updating with authoritative game state
         const localState = {
@@ -110,13 +109,12 @@ export function connectToServer() {
             ...newServerState,
             ...localState,
             isPvp: true,
-            myPlayerId: playerId // Ensure myPlayerId persists
+            myPlayerId: playerId 
         };
 
         updateState('gameState', updatedGameState);
         renderAll();
 
-        // Show turn indicator if it's now my turn
         if (updatedGameState.currentPlayer === playerId && updatedGameState.gamePhase === 'playing') {
              import('../ui/ui-renderer.js').then(uiRenderer => uiRenderer.showTurnIndicator());
         }
@@ -128,20 +126,6 @@ export function connectToServer() {
     
     socket.on('chatMessage', ({ speaker, message }) => {
         updateLog({ type: 'dialogue', speaker, message });
-    });
-
-    socket.on('playerDisconnected', ({ playerId, username }) => {
-        const { gameState } = getState();
-        if (!gameState) return;
-
-        const player = gameState.players[playerId];
-        if (player && !player.isEliminated) {
-            player.isEliminated = true;
-            updateLog(`${username} se desconectou e foi eliminado da partida.`);
-
-            // The server will handle game over logic. The client just needs to render the change.
-            renderAll();
-        }
     });
 
     socket.on('gameOver', (message) => {

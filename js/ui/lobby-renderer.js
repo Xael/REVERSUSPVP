@@ -59,14 +59,14 @@ export const updateLobbyUi = (roomData) => {
     let canStart = false;
     switch (roomData.mode) {
         case 'solo-2p':
-            canStart = playerCount === 2;
+            canStart = playerCount >= 2;
             break;
         case 'solo-3p':
-            canStart = playerCount === 3;
+            canStart = playerCount >= 3;
             break;
         case 'solo-4p':
         case 'duo':
-            canStart = playerCount === 4;
+            canStart = playerCount >= 4;
             break;
     }
     dom.lobbyStartGameButton.disabled = !(isHost && canStart);
