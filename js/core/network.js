@@ -106,6 +106,14 @@ export function connectToServer() {
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
     });
+
+    socket.on('gameAborted', (data) => {
+        alert(data.message || "Um jogador se desconectou. A partida foi encerrada.");
+        updateState('currentRoomId', null);
+        updateState('gameState', null);
+        dom.appContainerEl.classList.add('hidden');
+        showSplashScreen();
+    });
     
     socket.on('error', (errorMessage) => {
         alert(`Erro do servidor: ${errorMessage}`);

@@ -115,7 +115,7 @@ function renderPlayerHeader(player) {
     
     const restoValue = player.resto ? player.resto.value : 'N/A';
 
-    const activeFieldEffect = gameState.activeFieldEffects.find(fe => fe.appliesTo === player.id);
+    const activeFieldEffect = (gameState.activeFieldEffects || []).find(fe => fe.appliesTo === player.id);
 
     const nameClasses = ['player-name', `player-${player.id.split('-')[1]}`];
     if (player.aiType === 'necroverso') nameClasses.push('necro');
