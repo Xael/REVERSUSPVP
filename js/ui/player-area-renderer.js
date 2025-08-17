@@ -18,6 +18,7 @@ export const renderPlayerArea = (player) => {
     playerEl.className = 'player-area'; // Reset
     playerEl.classList.add(`p${pIdNum}-bg`);
     if (player.id === gameState.currentPlayer) playerEl.classList.add('active');
+    // CORREÇÃO: Adiciona a classe 'eliminated' se o jogador foi eliminado, mostrando o "X".
     if (player.isEliminated) playerEl.classList.add('eliminated');
 
     // Special AI glow effects

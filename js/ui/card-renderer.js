@@ -32,12 +32,16 @@ export const renderCard = (card, context, playerId) => {
     const isMyCard = playerId === myPlayerId;
     const classList = ['card', card.type];
     
-    // Logic for hiding cards:
-    // 1. A card sent from the server with `isHidden: true` is always hidden.
-    // 2. Fallback for single-player: Hide if it's an opponent's hand and not revealed.
+    // CORREÇÃO: Lógica de visibilidade da carta refeita para priorizar o estado do servidor.
+    // Isso garante que o jogador sempre veja suas próprias cartas, a menos que o servidor diga o contrário.
     const isHiddenByServer = card.isHidden === true;
-    const isHiddenByClientLogic = context === 'opponent-hand' && !(gameState.revealedHands || []).includes(playerId);
-    const isHidden = isHiddenByServer || isHiddenByClientLogic;
+    let isHidden = false;
+    if (isHiddenByServer) {
+        isHidden = true; // Confia no estado `isHidden` enviado pelo servidor.
+    } else if (!isMyCard && context === 'opponent-hand' && !(gameState.revealedHands || []).includes(playerId)) {
+        // Lógica de fallback para single-player ou se a mão do oponente não estiver revelada.
+        isHidden = true;
+    }
 
     // Logic to obscure cards (Contravox ability)
     const isCardObscuredByContravox = isMyCard && context === 'player-hand' && gameState.player1CardsObscured;
