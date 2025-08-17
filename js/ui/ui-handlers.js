@@ -26,7 +26,7 @@ import { renderRankingModal } from './ranking-renderer.js';
 function initializeGoogleSignIn(tries = 0) {
     // Adicione o seu Google Client ID aqui. Por segurança, em um projeto real,
     // isso viria de uma variável de ambiente.
-    const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+    const GOOGLE_CLIENT_ID = "2701468714-udbjtea2v5d1vnr8sdsshi3lem60dvkn.apps.googleusercontent.com";
 
     if (typeof google === 'undefined') {
         if (tries > 50) { // Tenta por 5 segundos
