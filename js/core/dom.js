@@ -100,6 +100,7 @@ export const pvpPasswordInput = document.getElementById('pvp-password-input');
 export const pvpPasswordSubmit = document.getElementById('pvp-password-submit');
 export const pvpPasswordCancel = document.getElementById('pvp-password-cancel');
 export const pvpLobbyModal = document.getElementById('pvp-lobby-modal');
+export const lobbyTitle = document.getElementById('lobby-title');
 export const pvpLobbyCloseButton = document.getElementById('pvp-lobby-close-button');
 export const lobbyGameModeEl = document.getElementById('lobby-game-mode');
 export const lobbyStartGameButton = document.getElementById('lobby-start-game-button');

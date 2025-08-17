@@ -657,6 +657,11 @@ export function initializeUiHandlers() {
             socket.emit('startGame', currentRoomId);
         }
     });
+    
+    dom.lobbyGameModeEl.addEventListener('change', (e) => {
+        const newMode = e.target.value;
+        network.emitChangeMode(newMode);
+    });
 
     const handleLobbyChat = () => {
         const message = dom.lobbyChatInput.value.trim();
