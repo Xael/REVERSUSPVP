@@ -10,11 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- 
-      PASSO FINAL PARA O ONLINE: 
-      Mude a URL abaixo para o endereço do seu servidor.
-      Exemplo: Se seu site é http://meujogo.com, mude para http://meujogo.com:3000/socket.io/socket.io.js
+      CORREÇÃO DEFINITIVA: 
+      Carregando o cliente Socket.IO de um CDN global.
+      Isso é mais rápido, confiável e resolve o erro "io is not defined".
     -->
-    <script src="https://reversus-node.dke42d.easypanel.host/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script type="module" src="js/core/index.js"></script>
     <script type="module" src="js/core/shortcuts.js"></script>
 <script type="importmap">
@@ -24,7 +24,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
 <div id="scalable-container">
@@ -539,6 +538,5 @@
     </div>
 
 </div>
-<script type="module" src="/index.tsx"></script>
 </body>
 </html>
