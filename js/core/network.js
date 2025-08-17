@@ -117,8 +117,6 @@ export function connectToServer() {
         addLobbyChatMessage(speaker, message);
     });
     
-    // The server now includes the log in the gameState, so a separate event is not strictly needed,
-    // but we can keep it for real-time chat feel without a full state broadcast.
     socket.on('chatMessage', ({ speaker, message }) => {
         updateLog({ type: 'dialogue', speaker, message });
     });

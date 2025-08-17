@@ -7,7 +7,7 @@ import { getState } from '../core/state.js';
  */
 export const renderBoard = () => {
     const { gameState } = getState();
-    if (!gameState) return;
+    if (!gameState || !gameState.boardPaths) return;
     
     dom.boardEl.innerHTML = ''; // Clear previous board state
     const centerPawnsContainer = document.createElement('div');
