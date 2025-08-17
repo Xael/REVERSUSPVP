@@ -5,32 +5,30 @@ import { renderAll } from '../ui/ui-renderer.js';
 import { renderPvpRooms, updateLobbyUi, addLobbyChatMessage } from '../ui/lobby-renderer.js';
 import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
+import { playCard } from '../game-logic/player-actions.js';
+import { advanceToNextPlayer } from '../game-logic/turn-manager.js';
+
 
 export function connectToServer() {
-    // 
-    // PASSO FINAL PARA O ONLINE: 
-    // Mude a URL abaixo para o endereço do seu servidor.
-    // Exemplo: Se seu site é http://meujogo.com, mude a linha abaixo para:
-    // const SERVER_URL = "http://meujogo.com:3000";
-    //
     const SERVER_URL = "https://reversus-node.dke42d.easypanel.host";
-
-    // O objeto 'io' está disponível globalmente porque incluímos o script socket.io.js no index.html
-    const socket = io(SERVER_URL);
+    const socket = io(SERVER_URL, {
+        reconnectionAttempts: 3,
+        timeout: 10000,
+    });
     updateState('socket', socket);
 
     socket.on('connect', () => {
-        console.log('Connected to server with ID:', socket.id);
+        console.log('Conectado ao servidor com ID:', socket.id);
+        updateState('clientId', socket.id);
     });
     
     socket.on('connect_error', (err) => {
-        console.error("Connection failed:", err.message);
-        alert("Falha ao conectar ao servidor PvP. Verifique se o servidor está rodando e se o endereço está correto. O modo offline ainda funciona.");
+        console.error("Falha na conexão:", err.message);
+        if (!getState().connectionErrorShown) {
+             alert("Falha ao conectar ao servidor PvP. Verifique se o servidor está rodando. O modo offline ainda funciona.");
+             updateState('connectionErrorShown', true);
+        }
         showSplashScreen();
-    });
-
-    socket.on('connected', (data) => {
-        updateState('clientId', data.clientId);
     });
 
     socket.on('roomList', (rooms) => {
@@ -38,8 +36,7 @@ export function connectToServer() {
     });
 
     socket.on('roomCreated', (roomId) => {
-        const { username } = getState();
-        emitJoinRoom(roomId, username); // Automatically join the room you created
+        emitJoinRoom(roomId); 
     });
 
     socket.on('lobbyUpdate', (roomData) => {
@@ -49,37 +46,61 @@ export function connectToServer() {
         updateLobbyUi(roomData);
     });
     
-    socket.on('gameStarted', () => {
+    socket.on('gameStarted', (serverGameState) => {
         dom.pvpLobbyModal.classList.add('hidden');
         dom.appContainerEl.classList.remove('hidden');
         dom.debugButton.classList.remove('hidden');
-    });
+        
+        // O cliente agora usa o estado vindo do servidor, mas gera o tabuleiro localmente
+        const clientGameState = {
+            ...serverGameState,
+            // A lógica de gerar o tabuleiro (generateBoardPaths) continua no cliente
+            // para manter a complexidade visual separada do servidor.
+            boardPaths: import('../game-logic/board.js').then(boardModule => boardModule.generateBoardPaths()),
+            // Adicionar outros estados que são apenas do cliente aqui
+            selectedCard: null,
+            reversusTarget: null,
+            pulaTarget: null,
+        };
 
-    socket.on('gameStateUpdate', (newState) => {
-        const { clientId } = getState();
-        const myPlayerData = newState.players[newState.myPlayerId];
+        updateState('gameState', clientGameState);
         
-        // The server sends the player ID for this client. Store it.
-        updateState('playerId', newState.myPlayerId);
+        // Determina qual 'player-id' este cliente controla
+        const myPlayerInfo = roomData.players.find(p => p.id === getState().clientId);
+        if(myPlayerInfo) {
+            updateState('playerId', myPlayerInfo.playerId);
+        }
         
-        // The gamestate from the server becomes our local truth.
-        updateState('gameState', newState);
-        
-        // Re-render the entire UI with the new, personalized state
         renderAll();
     });
+
+    // Handlers para Ações Retransmitidas pelo Servidor
+    socket.on('action:playCard', (data) => {
+        const { gameState, playerId } = getState();
+        // Apenas executa a ação se não for o jogador que a originou
+        if (data.playerId !== playerId) {
+            const player = gameState.players[data.playerId];
+            const card = player.hand.find(c => c.id === data.cardId);
+            if (player && card) {
+                playCard(player, card, data.targetId, data.options?.type, data.options);
+            }
+        }
+    });
     
-    socket.on('chatMessage', ({ speaker, message }) => {
-        updateLog({ type: 'dialogue', speaker, message: `${speaker}: "${message}"` });
+    socket.on('action:endTurn', (data) => {
+        const { gameState, playerId } = getState();
+        // Apenas executa a ação se não for o jogador que a originou
+        if (data.playerId !== playerId) {
+            advanceToNextPlayer();
+        }
     });
     
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
     });
     
-    socket.on('kicked', (reason) => {
-        alert(`Você foi desconectado da sala: ${reason}`);
-        showSplashScreen();
+    socket.on('error', (errorMessage) => {
+        alert(`Erro do servidor: ${errorMessage}`);
     });
 }
 
@@ -90,18 +111,22 @@ export function emitListRooms() {
 
 export function emitCreateRoom() {
     const { socket, username } = getState();
-    if (socket) socket.emit('createRoom', username);
+    if (socket && username) {
+        socket.emit('createRoom', { username });
+    }
 }
 
 export function emitJoinRoom(roomId) {
     const { socket, username } = getState();
-    if (socket) socket.emit('joinRoom', { roomId, username });
+    if (socket && username) {
+        socket.emit('joinRoom', { roomId, username });
+    }
 }
 
 export function emitLeaveRoom() {
     const { socket, currentRoomId } = getState();
     if (socket && currentRoomId) {
-        socket.emit('leaveRoom', currentRoomId);
+        socket.emit('leaveRoom');
         updateState('currentRoomId', null);
         updateState('gameState', null);
         dom.pvpLobbyModal.classList.add('hidden');
@@ -111,15 +136,17 @@ export function emitLeaveRoom() {
 }
 
 export function emitLobbyChat(message) {
-    const { socket, currentRoomId } = getState();
-    if(socket && currentRoomId) {
-        socket.emit('lobbyChatMessage', { roomId: currentRoomId, message });
+    const { socket } = getState();
+    if(socket) {
+        socket.emit('lobbyChatMessage', message);
     }
 }
 
 export function emitPlayCard({ cardId, targetId, options = {} }) {
     const { socket, playerId } = getState();
     if (socket && playerId) {
+        // O cliente não executa mais a ação localmente primeiro para evitar desincronização.
+        // Ele apenas envia a intenção para o servidor.
         socket.emit('playCard', { playerId, cardId, targetId, options });
     }
 }
@@ -128,14 +155,14 @@ export function emitEndTurn() {
     const { socket, gameState, playerId } = getState();
     if (!socket || !gameState || gameState.currentPlayer !== playerId) return;
     
-     // Client-side validation to prevent passing turn when it's not allowed
     const player = gameState.players[playerId];
-    const valueCardsInHandCount = player.hand.filter(c => c.type === 'value' && !c.isHidden).length;
+    const valueCardsInHandCount = player.hand.filter(c => c.type === 'value').length;
     const mustPlayValueCard = valueCardsInHandCount > 1 && !player.playedValueCardThisTurn;
     if (mustPlayValueCard) {
         alert("Você precisa jogar uma carta de valor neste turno!");
         return;
     }
-
-    socket.emit('endTurn', playerId);
+    
+    // Apenas envia a intenção para o servidor
+    socket.emit('endTurn', { playerId });
 }
