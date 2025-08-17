@@ -123,7 +123,8 @@ function renderPlayerHeader(player) {
     if (player.aiType === 'necroverso_final') nameClasses.push('final-boss-glow');
     if (gameState.isInversusMode && !player.isHuman) nameClasses.push('inversus-name-glow');
 
-    const revealedIcon = gameState.revealedHands.includes(player.id) ? '<div class="revealed-icon" title="Mão revelada"></div>' : '';
+    // CORREÇÃO DEFENSIVA: Garante que `revealedHands` seja um array antes de chamar `includes`.
+    const revealedIcon = (gameState.revealedHands || []).includes(player.id) ? '<div class="revealed-icon" title="Mão revelada"></div>' : '';
 
     let heartsOrStarsHTML = '';
     if (gameState.isInversusMode) {
