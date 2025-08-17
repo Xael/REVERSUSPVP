@@ -11,7 +11,7 @@ export const renderPlayerArea = (player) => {
     const playerEl = document.getElementById(`player-area-${player.id}`);
     if (!playerEl) return;
     
-    const { gameState } = getState();
+    const { gameState, playerId: myPlayerId } = getState();
     const pIdNum = parseInt(player.id.split('-')[1]);
 
     // Apply classes for styling
@@ -43,7 +43,7 @@ export const renderPlayerArea = (player) => {
     }
 
 
-    const context = player.isHuman ? 'player-hand' : 'ai-hand';
+    const context = player.id === myPlayerId ? 'player-hand' : 'opponent-hand';
     const handHTML = `<div class="player-hand" id="hand-${player.id}">${player.hand.map(card => renderCard(card, context, player.id)).join('')}</div>`;
 
     const playZoneSlots = [

@@ -19,8 +19,11 @@ export function connectToServer() {
     updateState('socket', socket);
 
     socket.on('connect', () => {
-        console.log('Conectado ao servidor com ID:', socket.id);
-        updateState('clientId', socket.id);
+        const clientId = socket.id;
+        console.log('Conectado ao servidor com ID:', clientId);
+        updateState('clientId', clientId);
+        updateState('playerId', null); // Reset player ID on new connection
+        updateState('currentRoomId', null);
     });
     
     socket.on('connect_error', (err) => {
@@ -48,63 +51,90 @@ export function connectToServer() {
     });
     
     socket.on('gameStarted', (serverGameState) => {
+        dom.splashScreenEl.classList.add('hidden');
         dom.pvpLobbyModal.classList.add('hidden');
         dom.appContainerEl.classList.remove('hidden');
         dom.debugButton.classList.remove('hidden');
 
-        // O servidor envia o ID do jogador que este cliente controla
-        updateState('playerId', serverGameState.myPlayerId);
+        const myPlayerId = serverGameState.myPlayerId;
+        updateState('playerId', myPlayerId);
 
-        // O estado do cliente é o estado do servidor mais o tabuleiro (gerado localmente) e estados de UI
         const clientGameState = {
             ...serverGameState,
-            boardPaths: generateBoardPaths(), // PvP usa um tabuleiro padrão
-            // Estados específicos da UI do cliente
+            boardPaths: generateBoardPaths(),
             selectedCard: null,
             reversusTarget: null,
             pulaTarget: null,
             dialogueState: { spokenLines: new Set() },
         };
         updateState('gameState', clientGameState);
+
+        // --- LÓGICA DE PERSPECTIVA DO JOGADOR ---
+        const playerIds = clientGameState.playerIdsInGame;
+        const myIndex = playerIds.indexOf(myPlayerId);
         
-        // Cria os contêineres para as áreas dos jogadores antes de renderizar
+        // Rotaciona a lista de jogadores para que o jogador atual sempre seja o primeiro
+        const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
+
+        // Mapeia os jogadores ordenados para as áreas da UI
+        // Posição 0 (Eu) -> Área inferior
+        // Posição 1 -> Oponente 1 (Direita, topo)
+        // Posição 2 -> Oponente 2 (Direita, meio)
+        // Posição 3 -> Oponente 3 (Direita, baixo)
         const player1Container = document.getElementById('player-1-area-container');
         const opponentsContainer = document.getElementById('opponent-zones-container');
         const createPlayerAreaHTML = (id) => `<div class="player-area" id="player-area-${id}"></div>`;
-        player1Container.innerHTML = createPlayerAreaHTML('player-1');
-        opponentsContainer.innerHTML = clientGameState.playerIdsInGame.filter(id => id !== 'player-1').map(id => createPlayerAreaHTML(id)).join('');
+        
+        player1Container.innerHTML = createPlayerAreaHTML(orderedPlayerIds[0]);
+        opponentsContainer.innerHTML = orderedPlayerIds.slice(1).map(id => createPlayerAreaHTML(id)).join('');
 
         renderAll();
 
-        // Anuncia o turno se for a vez do jogador humano
-        if (clientGameState.currentPlayer === clientGameState.myPlayerId) {
+        if (clientGameState.currentPlayer === myPlayerId) {
             import('../ui/ui-renderer.js').then(uiRenderer => uiRenderer.showTurnIndicator());
         }
     });
 
-    // Handlers para Ações Retransmitidas pelo Servidor
     socket.on('action:playCard', (data) => {
-        const { gameState, playerId } = getState();
-        // Apenas executa a ação se não for o jogador que a originou
-        if (data.playerId !== playerId) {
-            const player = gameState.players[data.playerId];
-            const card = player.hand.find(c => c.id === data.cardId);
-            if (player && card) {
-                playCard(player, card, data.targetId, data.options?.type, data.options);
-            }
+        const { gameState } = getState();
+        const player = gameState.players[data.playerId];
+        const card = player.hand.find(c => c.id === data.cardId);
+        if (player && card) {
+            playCard(player, card, data.targetId, data.options?.type, data.options);
         }
     });
     
-    socket.on('action:endTurn', (data) => {
-        const { gameState, playerId } = getState();
-        // Apenas executa a ação se não for o jogador que a originou
-        if (data.playerId !== playerId) {
-            advanceToNextPlayer();
-        }
+    socket.on('action:endTurn', () => {
+        advanceToNextPlayer();
     });
     
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
+    });
+
+    socket.on('playerDisconnected', ({ playerId, username }) => {
+        const { gameState } = getState();
+        if (!gameState) return;
+
+        const player = gameState.players[playerId];
+        if (player && !player.isEliminated) {
+            player.isEliminated = true;
+            updateLog(`${username} se desconectou e foi eliminado da partida.`);
+
+            // Verifica se o jogo deve terminar
+            const activePlayers = gameState.playerIdsInGame.filter(id => !gameState.players[id].isEliminated);
+            if (activePlayers.length <= 1) {
+                const winnerName = activePlayers.length === 1 ? gameState.players[activePlayers[0]].name : "Ninguém";
+                import('../ui/ui-renderer.js').then(ui => ui.showGameOver(`${winnerName} venceu por W.O.!`));
+            } else {
+                // Se era a vez do jogador que caiu, passa o turno
+                if (gameState.currentPlayer === playerId) {
+                    advanceToNextPlayer();
+                } else {
+                    renderAll(); // Apenas atualiza a UI para mostrar o "X"
+                }
+            }
+        }
     });
 
     socket.on('gameAborted', (data) => {
@@ -168,10 +198,6 @@ export function emitChangeMode(mode) {
 export function emitPlayCard({ cardId, targetId, options = {} }) {
     const { socket, playerId } = getState();
     if (socket && playerId) {
-        // O cliente executa a ação localmente e envia para o servidor retransmitir
-        const player = getState().gameState.players[playerId];
-        const card = player.hand.find(c => c.id === cardId);
-        playCard(player, card, targetId, options?.type, options);
         socket.emit('playCard', { playerId, cardId, targetId, options });
     }
 }
@@ -188,7 +214,5 @@ export function emitEndTurn() {
         return;
     }
     
-    // Executa a ação localmente e envia para o servidor retransmitir
-    advanceToNextPlayer();
     socket.emit('endTurn', { playerId });
 }
