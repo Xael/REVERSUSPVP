@@ -7,7 +7,7 @@ import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
 import { playCard } from '../game-logic/player-actions.js';
 import { advanceToNextPlayer } from '../game-logic/turn-manager.js';
-import { generateBoardPaths } from '../game-logic/board.js';
+import { updateGameTimer } from '../game-controller.js';
 
 
 export function connectToServer() {
@@ -56,18 +56,26 @@ export function connectToServer() {
         dom.appContainerEl.classList.remove('hidden');
         dom.debugButton.classList.remove('hidden');
 
+        // O servidor é a fonte da verdade. O cliente apenas adiciona estados locais.
         const myPlayerId = serverGameState.myPlayerId;
         updateState('playerId', myPlayerId);
 
         const clientGameState = {
-            ...serverGameState,
-            boardPaths: generateBoardPaths(),
+            ...serverGameState, // Usa o estado completo do servidor
             selectedCard: null,
             reversusTarget: null,
             pulaTarget: null,
             dialogueState: { spokenLines: new Set() },
         };
         updateState('gameState', clientGameState);
+        
+        // Inicia o timer do jogo no cliente
+        const state = getState();
+        if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
+        updateState('gameStartTime', Date.now());
+        updateGameTimer();
+        updateState('gameTimerInterval', setInterval(updateGameTimer, 1000));
+
 
         // --- LÓGICA DE PERSPECTIVA DO JOGADOR ---
         const playerIds = clientGameState.playerIdsInGame;
@@ -76,11 +84,6 @@ export function connectToServer() {
         // Rotaciona a lista de jogadores para que o jogador atual sempre seja o primeiro
         const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
 
-        // Mapeia os jogadores ordenados para as áreas da UI
-        // Posição 0 (Eu) -> Área inferior
-        // Posição 1 -> Oponente 1 (Direita, topo)
-        // Posição 2 -> Oponente 2 (Direita, meio)
-        // Posição 3 -> Oponente 3 (Direita, baixo)
         const player1Container = document.getElementById('player-1-area-container');
         const opponentsContainer = document.getElementById('opponent-zones-container');
         const createPlayerAreaHTML = (id) => `<div class="player-area" id="player-area-${id}"></div>`;

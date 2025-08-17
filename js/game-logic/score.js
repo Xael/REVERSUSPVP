@@ -20,9 +20,11 @@ export function updateLiveScoresAndWinningStatus() {
         const effect = player.effects.score;
         let restoValue = player.resto ? player.resto.value : 0;
         
-        const restoMaiorEffect = gameState.activeFieldEffects.find(fe => fe.name === 'Resto Maior' && fe.appliesTo === id);
+        // CORREÇÃO DEFENSIVA: Garante que activeFieldEffects seja um array antes de usar .find()
+        const activeEffects = gameState.activeFieldEffects || [];
+        const restoMaiorEffect = activeEffects.find(fe => fe.name === 'Resto Maior' && fe.appliesTo === id);
         if(restoMaiorEffect) restoValue = 10;
-        const restoMenorEffect = gameState.activeFieldEffects.find(fe => fe.name === 'Resto Menor' && fe.appliesTo === id);
+        const restoMenorEffect = activeEffects.find(fe => fe.name === 'Resto Menor' && fe.appliesTo === id);
         if(restoMenorEffect) restoValue = 2;
 
         if (effect === 'Mais') score += restoValue;
