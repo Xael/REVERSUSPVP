@@ -6,6 +6,7 @@ import { renderPlayerArea } from './player-area-renderer.js';
 import { renderBoard } from './board-renderer.js';
 import { grantAchievement } from '../core/achievements.js';
 import { showSplashScreen } from './splash-screen.js';
+import { updateLog } from '../core/utils.js';
 
 /**
  * Updates the UI for Xael's Star Power ability.
@@ -40,10 +41,17 @@ export const renderAll = () => {
     if (!gameState) return;
     
     // Render each player's area
-    gameState.playerIdsInGame.forEach(id => renderPlayerArea(gameState.players[id]));
+    gameState.playerIdsInGame.forEach(id => {
+        if(gameState.players[id]) {
+            renderPlayerArea(gameState.players[id]);
+        }
+    });
 
     // Render the game board and pawns
     renderBoard();
+
+    // Re-render the log from the authoritative game state
+    updateLog();
 
     // Update the action buttons based on the current state
     updateActionButtons();
@@ -61,22 +69,24 @@ export const renderAll = () => {
  * Enables/disables action buttons based on game state. The turn message is handled by overlays.
  */
 export const updateActionButtons = () => {
-    const { gameState } = getState();
+    const { gameState, playerId } = getState();
     if (!gameState) return;
-
+    
     const currentPlayer = gameState.players[gameState.currentPlayer];
-    const player1 = gameState.players['player-1'];
+    // FIX: Use the correct player ID for PvP perspective
+    const myPlayer = gameState.isPvp ? gameState.players[playerId] : gameState.players['player-1'];
+    if (!myPlayer || !currentPlayer) return; // Guard against missing player state
 
-    const isHumanTurn = currentPlayer.isHuman && gameState.gamePhase === 'playing';
+    const isMyTurn = currentPlayer.id === myPlayer.id && gameState.gamePhase === 'playing';
     const hasSelectedCard = !!gameState.selectedCard;
 
     // Logic for enabling/disabling the end turn button
-    const valueCardsInHandCount = player1.hand.filter(c => c.type === 'value').length;
+    const valueCardsInHandCount = myPlayer.hand.filter(c => c.type === 'value').length;
     // Player MUST play a value card if they have >1 and haven't played one this turn.
-    const mustPlayValueCard = valueCardsInHandCount > 1 && !player1.playedValueCardThisTurn;
+    const mustPlayValueCard = valueCardsInHandCount > 1 && !myPlayer.playedValueCardThisTurn;
 
-    dom.playButton.disabled = !isHumanTurn || !hasSelectedCard;
-    dom.endTurnButton.disabled = !isHumanTurn || mustPlayValueCard;
+    dom.playButton.disabled = !isMyTurn || !hasSelectedCard;
+    dom.endTurnButton.disabled = !isMyTurn || mustPlayValueCard;
 };
 
 /**

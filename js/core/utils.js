@@ -43,47 +43,53 @@ export const shuffle = (array) => {
 };
 
 /**
- * Adds a message to the in-game log and updates the UI.
- * Handles both simple string messages and structured log objects.
- * @param {string | object} logEntry - The message string or a log object with metadata.
+ * Adds a message to the in-game log and updates the UI. Can also be called without a message to just re-render.
+ * @param {string | object} [logEntry] - The message string or a log object with metadata.
  */
 export const updateLog = (logEntry) => {
     const { gameState } = getState();
     if (!gameState) return;
 
-    const entry = (typeof logEntry === 'string') ? { type: 'system', message: logEntry } : logEntry;
+    if (logEntry) {
+        // In non-PvP games, the client is the authority on the log.
+        if (!gameState.isPvp) {
+            const entry = typeof logEntry === 'string' ? { type: 'system', message: logEntry } : logEntry;
+            gameState.log.unshift(entry);
+        }
+        // For PvP, handle real-time chat messages pushed from the server.
+        // Full log updates are handled by the main 'gameStateUpdate' event.
+        else if (logEntry.type === 'dialogue') {
+            gameState.log.unshift(logEntry);
+        }
+    }
     
-    // Emoji replacement
+    if (gameState.log.length > 50) {
+        gameState.log.pop();
+    }
+    
+    // Emoji replacement map
     const emojiMap = {
         ':)': '😊',
         ':(': '😞',
         ';(': '😭',
         's2': '❤️',
-        '&lt;3': '❤️'
+        '<3': '❤️'
     };
-    
-    // Sanitize message to prevent HTML injection, then replace emojis
-    const sanitizedMessage = String(entry.message).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const emojiMessage = sanitizedMessage.replace(/:\)|:\(|;\(|s2|&lt;3/gi, (match) => emojiMap[match.toLowerCase()] || match);
-    entry.message = emojiMessage;
 
-
-    console.log(entry.message);
-    gameState.log.unshift(entry);
-    if (gameState.log.length > 50) {
-        gameState.log.pop();
-    }
-    
     dom.logEl.innerHTML = gameState.log.map(m => {
+        // Sanitize message to prevent HTML injection first
+        const sanitizedMessage = String(m.message).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        // Then replace text with emojis
+        const emojiMessage = sanitizedMessage.replace(/:\)|:\(|;\(|s2|&lt;3|<3/gi, (match) => emojiMap[match.toLowerCase()] || match);
+
         if (m.type === 'dialogue' && m.speaker) {
-            // In PvP, speaker is a username. In Story, it's a character ID.
             const isStorySpeaker = Object.keys(config.AI_CHAT_PERSONALITIES).includes(m.speaker);
-            // Use a generic distinct color for PvP chat messages
-            const speakerClass = isStorySpeaker ? `speaker-${m.speaker}` : `speaker-player-pvp`; 
-            const speakerName = isStorySpeaker ? '' : `<strong>${m.speaker}:</strong> `;
-            return `<div class="log-message dialogue ${speakerClass}">${speakerName}${m.message}</div>`;
+            // Use a generic distinct color for PvP chat messages from other players
+            const speakerClass = isStorySpeaker ? `speaker-${m.speaker}` : `speaker-player-1`; 
+            const speakerName = `<strong>${m.speaker}:</strong> `;
+            return `<div class="log-message dialogue ${speakerClass}">${speakerName}${emojiMessage}</div>`;
         }
-        return `<div class="log-message system">${m.message}</div>`;
+        return `<div class="log-message system">${emojiMessage}</div>`;
     }).join('');
 
     dom.logEl.scrollTop = 0;

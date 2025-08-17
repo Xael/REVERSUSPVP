@@ -54,7 +54,7 @@ export const updateLobbyUi = (roomData) => {
     dom.lobbyGameModeEl.value = roomData.mode;
     dom.lobbyGameModeEl.disabled = !isHost;
 
-    // Update start game button based on mode and player count
+    // CORREÇÃO: Habilita o botão de iniciar com base no modo de jogo e contagem de jogadores
     const playerCount = roomData.players.length;
     let canStart = false;
     switch (roomData.mode) {
