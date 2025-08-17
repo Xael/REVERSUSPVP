@@ -53,6 +53,21 @@ export const updateLog = (logEntry) => {
 
     const entry = (typeof logEntry === 'string') ? { type: 'system', message: logEntry } : logEntry;
     
+    // Emoji replacement
+    const emojiMap = {
+        ':)': '😊',
+        ':(': '😞',
+        ';(': '😭',
+        's2': '❤️',
+        '&lt;3': '❤️'
+    };
+    
+    // Sanitize message to prevent HTML injection, then replace emojis
+    const sanitizedMessage = entry.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const emojiMessage = sanitizedMessage.replace(/:\)|:\(|;\(|s2|&lt;3/gi, (match) => emojiMap[match.toLowerCase()] || match);
+    entry.message = emojiMessage;
+
+
     console.log(entry.message);
     gameState.log.unshift(entry);
     if (gameState.log.length > 50) {
@@ -61,8 +76,11 @@ export const updateLog = (logEntry) => {
     
     dom.logEl.innerHTML = gameState.log.map(m => {
         if (m.type === 'dialogue' && m.speaker) {
-            const speakerClass = `speaker-${m.speaker}`;
-            return `<div class="log-message dialogue ${speakerClass}">${m.message}</div>`;
+            // In PvP, speaker is a username. In Story, it's a character ID.
+            const isStorySpeaker = Object.keys(config.AI_CHAT_PERSONALITIES).includes(m.speaker);
+            const speakerClass = isStorySpeaker ? `speaker-${m.speaker}` : 'speaker-player-1'; // Use a generic color for PvP
+            const speakerName = isStorySpeaker ? '' : `<strong>${m.speaker}:</strong> `;
+            return `<div class="log-message dialogue ${speakerClass}">${speakerName}${m.message}</div>`;
         }
         return `<div class="log-message system">${m.message}</div>`;
     }).join('');

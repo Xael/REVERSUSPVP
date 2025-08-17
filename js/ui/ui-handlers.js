@@ -78,6 +78,26 @@ async function handlePlayButtonClick() {
         return;
     }
 
+    // In PvP, we always emit to the server. For other modes, we handle targeting locally first.
+    if (gameState.isPvp) {
+         if (card.type === 'value') {
+            network.emitPlayCard({ cardId: card.id, targetId: playerId });
+        } else {
+            // All effect cards in PvP will go through the standard targeting flow
+            gameState.gamePhase = 'targeting';
+            dom.targetModalCardName.textContent = card.name;
+            dom.targetPlayerButtonsEl.innerHTML = gameState.playerIdsInGame
+                .map(id => {
+                    const player = gameState.players[id];
+                    if (player.isEliminated) return '';
+                    return `<button class="control-button target-player-${id.split('-')[1]}" data-player-id="${id}">${player.name}</button>`;
+                })
+                .join('');
+            dom.targetModal.classList.remove('hidden');
+        }
+        return;
+    }
+
     if (card.type === 'value') {
         network.emitPlayCard({ cardId: card.id, targetId: playerId });
     } else if (card.name === 'Reversus Total') {
@@ -112,6 +132,7 @@ async function handlePlayerTargetSelection(targetId) {
     const card = gameState.selectedCard;
     dom.targetModal.classList.add('hidden');
     
+    // Handle special card flows locally before emitting
     if (card.name === 'Reversus') {
         gameState.reversusTarget = { card, targetPlayerId: targetId };
         gameState.gamePhase = 'reversus_targeting';
@@ -126,7 +147,13 @@ async function handlePlayerTargetSelection(targetId) {
         }
         gameState.pulaTarget = { card, targetPlayerId: targetId };
         handlePulaCasterChoice(card, targetId);
+    } else if (card.name === 'Reversus Total') { // This case is for Individual Lock flow
+         gameState.reversusTarget = { card, targetPlayerId: targetId };
+         gameState.gamePhase = 'reversus_targeting';
+         dom.reversusIndividualEffectChoiceModal.classList.remove('hidden');
+         updateActionButtons();
     } else {
+        // For simple cards like 'Mais', 'Menos', etc., emit directly.
         network.emitPlayCard({ cardId: card.id, targetId });
     }
 }
@@ -156,12 +183,11 @@ async function handlePulaPathSelection(chosenPathId) {
     if (!gameState.pulaTarget) return;
 
     const { card, targetPlayerId } = gameState.pulaTarget;
-    const isLock = card.name === 'Reversus Total';
     
     dom.pulaModal.classList.add('hidden');
     
     const options = {
-        effect: isLock ? 'Pula' : null,
+        effect: 'Pula',
         targetPath: chosenPathId
     };
 
@@ -174,7 +200,7 @@ async function handleReversusEffectTypeSelection(effectTypeToReverse) {
     const { card, targetPlayerId } = gameState.reversusTarget;
     dom.reversusTargetModal.classList.add('hidden');
     
-    network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { effect: 'Reversus', type: effectTypeToReverse } });
+    network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { type: effectTypeToReverse } });
 }
 
 async function handleReversusTotalChoice(isGlobal) {
@@ -216,15 +242,21 @@ async function handleIndividualEffectLock(effectName) {
         gameState.pulaTarget = { card, targetPlayerId };
         handlePulaCasterChoice(card, targetPlayerId);
     } else {
-        network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { effect: effectName } });
+        network.emitPlayCard({ cardId: card.id, targetId: targetPlayerId, options: { isIndividualLock: true, effectNameToApply: effectName } });
     }
 }
 
 async function handleChatSend() {
-    const { socket } = getState();
+    const { gameState } = getState();
     const input = dom.chatInput.value.trim();
-    if (!input || !socket) return;
-    socket.emit('chatMessage', input);
+    if (!input) return;
+
+    if (gameState && gameState.isPvp) {
+        network.emitChatMessage(input);
+    } else {
+        // Handle local/AI chat if needed in the future
+    }
+    
     dom.chatInput.value = '';
 }
 
@@ -397,7 +429,6 @@ async function handleRandomOpponentSelection() {
 
 export function initializeUiHandlers() {
     // Listen for custom events dispatched by the network module
-    document.addEventListener('aiTurnEnded', () => {}); // No longer needed, server controls turns
     document.addEventListener('showSplashScreen', showSplashScreen);
     document.addEventListener('playEndgameSequence', () => import('../story/story-controller.js').then(module => module.playEndgameSequence()));
     

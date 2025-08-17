@@ -1,12 +1,10 @@
 // js/core/network.js
 import { getState, updateState } from './state.js';
 import * as dom from './dom.js';
-import { renderAll } from '../ui/ui-renderer.js';
+import { renderAll, showGameOver } from './ui-renderer.js';
 import { renderPvpRooms, updateLobbyUi, addLobbyChatMessage } from '../ui/lobby-renderer.js';
 import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
-import { playCard } from '../game-logic/player-actions.js';
-import { advanceToNextPlayer } from '../game-logic/turn-manager.js';
 import { updateGameTimer } from '../game-controller.js';
 
 
@@ -55,13 +53,15 @@ export function connectToServer() {
         dom.pvpLobbyModal.classList.add('hidden');
         dom.appContainerEl.classList.remove('hidden');
         dom.debugButton.classList.remove('hidden');
+        dom.chatInputArea.classList.remove('hidden');
 
-        // O servidor é a fonte da verdade. O cliente apenas adiciona estados locais.
+        // The server is the source of truth. We just need to add local UI state.
         const myPlayerId = serverGameState.myPlayerId;
         updateState('playerId', myPlayerId);
 
         const clientGameState = {
-            ...serverGameState, // Usa o estado completo do servidor
+            ...serverGameState,
+            isPvp: true, // Mark this as a PvP game
             selectedCard: null,
             reversusTarget: null,
             pulaTarget: null,
@@ -69,29 +69,23 @@ export function connectToServer() {
         };
         updateState('gameState', clientGameState);
         
-        // Inicia o timer e o chat do jogo no cliente
         const state = getState();
         if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
         updateState('gameStartTime', Date.now());
         updateGameTimer();
         updateState('gameTimerInterval', setInterval(updateGameTimer, 1000));
-        dom.chatInputArea.classList.remove('hidden');
-
-
-        // --- LÓGICA DE PERSPECTIVA DO JOGADOR ---
+        
+        // --- PLAYER PERSPECTIVE LOGIC ---
         const playerIds = clientGameState.playerIdsInGame;
         const myIndex = playerIds.indexOf(myPlayerId);
         
-        // Rotaciona a lista de jogadores para que o jogador atual sempre seja o primeiro na renderização
         const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
 
         const player1Container = document.getElementById('player-1-area-container');
         const opponentsContainer = document.getElementById('opponent-zones-container');
         const createPlayerAreaHTML = (id) => `<div class="player-area" id="player-area-${id}"></div>`;
         
-        // O primeiro da lista ordenada é sempre "eu", que vai para a área de baixo
         player1Container.innerHTML = createPlayerAreaHTML(orderedPlayerIds[0]);
-        // O resto são os oponentes, que vão para a direita
         opponentsContainer.innerHTML = orderedPlayerIds.slice(1).map(id => createPlayerAreaHTML(id)).join('');
 
         renderAll();
@@ -101,17 +95,31 @@ export function connectToServer() {
         }
     });
 
-    socket.on('action:playCard', (data) => {
-        const { gameState } = getState();
-        const player = gameState.players[data.playerId];
-        const card = player.hand.find(c => c.id === data.cardId);
-        if (player && card) {
-            playCard(player, card, data.targetId, data.options?.type, data.options);
+    socket.on('gameStateUpdate', (newServerState) => {
+        const { gameState, playerId } = getState();
+        if (!gameState) return; // Don't update if not in a game
+
+        // Preserve local UI state while updating with authoritative game state
+        const localState = {
+            selectedCard: gameState.selectedCard,
+            reversusTarget: gameState.reversusTarget,
+            pulaTarget: gameState.pulaTarget,
+        };
+
+        const updatedGameState = {
+            ...newServerState,
+            ...localState,
+            isPvp: true,
+            myPlayerId: playerId // Ensure myPlayerId persists
+        };
+
+        updateState('gameState', updatedGameState);
+        renderAll();
+
+        // Show turn indicator if it's now my turn
+        if (updatedGameState.currentPlayer === playerId && updatedGameState.gamePhase === 'playing') {
+             import('../ui/ui-renderer.js').then(uiRenderer => uiRenderer.showTurnIndicator());
         }
-    });
-    
-    socket.on('action:endTurn', () => {
-        advanceToNextPlayer();
     });
     
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
@@ -131,20 +139,13 @@ export function connectToServer() {
             player.isEliminated = true;
             updateLog(`${username} se desconectou e foi eliminado da partida.`);
 
-            // Verifica se o jogo deve terminar
-            const activePlayers = gameState.playerIdsInGame.filter(id => !gameState.players[id].isEliminated);
-            if (activePlayers.length <= 1) {
-                const winnerName = activePlayers.length === 1 ? gameState.players[activePlayers[0]].name : "Ninguém";
-                import('../ui/ui-renderer.js').then(ui => ui.showGameOver(`${winnerName} venceu por W.O.!`));
-            } else {
-                // Se era a vez do jogador que caiu, passa o turno
-                if (gameState.currentPlayer === playerId) {
-                    advanceToNextPlayer();
-                } else {
-                    renderAll(); // Apenas atualiza a UI para mostrar o "X"
-                }
-            }
+            // The server will handle game over logic. The client just needs to render the change.
+            renderAll();
         }
+    });
+
+    socket.on('gameOver', (message) => {
+        showGameOver(message, "Fim de Jogo!", { text: "Voltar ao Lobby", action: "menu" });
     });
 
     socket.on('gameAborted', (data) => {
@@ -198,6 +199,13 @@ export function emitLobbyChat(message) {
     }
 }
 
+export function emitChatMessage(message) {
+    const { socket } = getState();
+    if (socket) {
+        socket.emit('chatMessage', message);
+    }
+}
+
 export function emitChangeMode(mode) {
     const { socket } = getState();
     if (socket) {
@@ -206,9 +214,9 @@ export function emitChangeMode(mode) {
 }
 
 export function emitPlayCard({ cardId, targetId, options = {} }) {
-    const { socket, playerId } = getState();
-    if (socket && playerId) {
-        socket.emit('playCard', { playerId, cardId, targetId, options });
+    const { socket } = getState();
+    if (socket) {
+        socket.emit('playCard', { cardId, targetId, options });
     }
 }
 
@@ -224,5 +232,5 @@ export function emitEndTurn() {
         return;
     }
     
-    socket.emit('endTurn', { playerId });
+    socket.emit('endTurn');
 }
