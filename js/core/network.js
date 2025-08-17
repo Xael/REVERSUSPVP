@@ -1,16 +1,25 @@
-// js/core/network.js
 import { getState, updateState } from './state.js';
 import * as dom from './dom.js';
 import { renderAll, showGameOver } from '../ui/ui-renderer.js';
 import { renderPvpRooms, updateLobbyUi, addLobbyChatMessage } from '../ui/lobby-renderer.js';
+import { renderRankingModal } from '../ui/ranking-renderer.js';
 import { showSplashScreen } from '../ui/splash-screen.js';
 import { updateLog } from './utils.js';
 import { updateGameTimer } from '../game-controller.js';
+import { renderProfileModal } from '../ui/profile-renderer.js';
 
+let socket;
 
 export function connectToServer() {
+    // A URL do seu servidor. Em produção, use a URL real.
+    // Para desenvolvimento local, você pode usar "http://localhost:3000".
     const SERVER_URL = "https://reversus-node.dke42d.easypanel.host";
-    const socket = io(SERVER_URL, {
+    
+    if (socket && socket.connected) {
+        return;
+    }
+
+    socket = io(SERVER_URL, {
         reconnectionAttempts: 3,
         timeout: 10000,
     });
@@ -20,17 +29,36 @@ export function connectToServer() {
         const clientId = socket.id;
         console.log('Conectado ao servidor com ID:', clientId);
         updateState('clientId', clientId);
-        updateState('playerId', null); // Reset player ID on new connection
-        updateState('currentRoomId', null);
     });
     
     socket.on('connect_error', (err) => {
         console.error("Falha na conexão:", err.message);
         if (!getState().connectionErrorShown) {
-             alert("Falha ao conectar ao servidor PvP. Verifique se o servidor está rodando. O modo offline ainda funciona.");
-             updateState('connectionErrorShown', true);
+             alert("Falha ao conectar ao servidor PvP. O modo online está indisponível.");
+             updateState('connectionErrorShown', true); // Evita múltiplos alertas
         }
         showSplashScreen();
+    });
+
+    socket.on('loginSuccess', ({ user, rooms }) => {
+        updateState('authenticatedUser', user);
+        dom.profileButton.classList.remove('hidden'); // Mostra o botão de perfil
+        dom.splashScreenEl.classList.add('hidden');
+        dom.pvpRoomListModal.classList.remove('hidden');
+        dom.pvpGreeting.textContent = `Bem-vindo, ${user.name}!`;
+        renderPvpRooms(rooms);
+    });
+    
+    socket.on('loginError', (message) => {
+        alert(`Erro de login: ${message}`);
+    });
+
+    socket.on('rankingData', (ranking) => {
+        renderRankingModal(ranking);
+    });
+    
+    socket.on('profileData', (profile) => {
+        renderProfileModal(profile);
     });
 
     socket.on('roomList', (rooms) => {
@@ -53,8 +81,6 @@ export function connectToServer() {
     });
     
     socket.on('gameStarted', () => {
-        // This event now just signals the client to prepare for the game.
-        // The authoritative state will arrive via 'gameStateUpdate'.
         dom.splashScreenEl.classList.add('hidden');
         dom.pvpLobbyModal.classList.add('hidden');
         dom.appContainerEl.classList.remove('hidden');
@@ -71,16 +97,15 @@ export function connectToServer() {
     socket.on('gameStateUpdate', (serverGameState) => {
         const { gameState, playerId } = getState();
 
-        // Preserve local UI state (like which card is selected)
         const localUiState = gameState ? {
             selectedCard: gameState.selectedCard,
             reversusTarget: gameState.reversusTarget,
             pulaTarget: gameState.pulaTarget,
         } : {};
-
-        const myPlayerId = serverGameState.myPlayerId;
-        updateState('playerId', myPlayerId);
-
+        
+        // O servidor agora não envia `myPlayerId`, então usamos o que já temos
+        const myPlayerId = playerId || serverGameState.playerIdsInGame.find(pId => serverGameState.players[pId].name === getState().authenticatedUser?.name);
+        
         const clientGameState = {
             ...serverGameState,
             ...localUiState,
@@ -89,64 +114,12 @@ export function connectToServer() {
         };
         updateState('gameState', clientGameState);
         
-        // --- PLAYER PERSPECTIVE LOGIC ---
-        // This crucial logic ensures the local player is always at the bottom of the screen.
-        const playerIds = clientGameState.playerIdsInGame;
-        const myIndex = playerIds.indexOf(myPlayerId);
-        
-        // Create a new array with the local player first, followed by others in order
-        const orderedPlayerIds = [...playerIds.slice(myIndex), ...playerIds.slice(0, myIndex)];
-
-        const player1Container = document.getElementById('player-1-area-container');
-        const opponentsContainer = document.getElementById('opponent-zones-container');
-        const createPlayerAreaHTML = (id) => `<div class="player-area" id="player-area-${id}"></div>`;
-        
-        // The first player in our ordered list is always the local player
-        player1Container.innerHTML = createPlayerAreaHTML(orderedPlayerIds[0]);
-        // The rest are opponents
-        opponentsContainer.innerHTML = orderedPlayerIds.slice(1).map(id => createPlayerAreaHTML(id)).join('');
-
-        renderAll();
-
         if (clientGameState.currentPlayer === myPlayerId && clientGameState.gamePhase === 'playing') {
              import('../ui/ui-renderer.js').then(uiRenderer => uiRenderer.showTurnIndicator());
         }
+        renderAll();
     });
 
-    socket.on('cardPlayedAnimation', async ({ casterId, targetId, card, targetSlotLabel }) => {
-        const { gameState } = getState();
-        if (!gameState) return;
-
-        // 1. Animate the card
-        // This selector might fail if the gameStateUpdate arrives before this event.
-        // It's a race condition, but we proceed assuming it works most of the time.
-        const startElement = document.querySelector(`#hand-${casterId} [data-card-id="${card.id}"]`);
-        if (startElement) {
-            const animations = await import('../ui/animations.js');
-            animations.animateCardPlay(card, startElement, targetId, targetSlotLabel);
-        }
-
-        // 2. Play sounds and announce effects, which don't depend on the startElement
-        const sound = await import('../core/sound.js');
-        const cardName = card.isLocked ? card.lockedEffect : card.name;
-        
-        const soundToPlay = cardName.toLowerCase().replace(/\s/g, '');
-        const effectsWithSounds = ['mais', 'menos', 'sobe', 'desce', 'pula', 'reversus'];
-        
-        if (card.name === 'Reversus Total' && !card.isLocked) {
-             sound.playSoundEffect('reversustotal');
-             sound.announceEffect('Reversus Total!', 'reversus-total');
-        } else if (effectsWithSounds.includes(soundToPlay)) {
-            sound.playSoundEffect(soundToPlay);
-            sound.announceEffect(cardName);
-        }
-        
-        if (card.isLocked) {
-             sound.playSoundEffect('reversustotal');
-             sound.announceEffect("REVERSUS INDIVIDUAL!", 'reversus');
-        }
-    });
-    
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
     });
@@ -156,7 +129,7 @@ export function connectToServer() {
     });
 
     socket.on('gameOver', (message) => {
-        showGameOver(message, "Fim de Jogo!", { text: "Voltar ao Lobby", action: "menu" });
+        showGameOver(message, "Fim de Jogo!", { text: "Voltar ao Menu", action: "menu" });
     });
 
     socket.on('gameAborted', (data) => {
@@ -172,23 +145,28 @@ export function connectToServer() {
     });
 }
 
+export function emitLoginWithGoogle(token) {
+    if (socket) socket.emit('loginWithGoogle', { token });
+}
+
+export function emitGetRanking() {
+    if (socket) socket.emit('getRanking');
+}
+
+export function emitGetMyProfile() {
+    if (socket) socket.emit('getMyProfile');
+}
+
 export function emitListRooms() {
-    const { socket } = getState();
     if (socket) socket.emit('listRooms');
 }
 
 export function emitCreateRoom() {
-    const { socket, username } = getState();
-    if (socket && username) {
-        socket.emit('createRoom', { username });
-    }
+    if (socket) socket.emit('createRoom');
 }
 
 export function emitJoinRoom(roomId) {
-    const { socket, username } = getState();
-    if (socket && username) {
-        socket.emit('joinRoom', { roomId, username });
-    }
+    if (socket) socket.emit('joinRoom', roomId);
 }
 
 export function emitLeaveRoom() {
@@ -204,31 +182,19 @@ export function emitLeaveRoom() {
 }
 
 export function emitLobbyChat(message) {
-    const { socket } = getState();
-    if(socket) {
-        socket.emit('lobbyChatMessage', message);
-    }
+    if(socket) socket.emit('lobbyChatMessage', message);
 }
 
 export function emitChatMessage(message) {
-    const { socket } = getState();
-    if (socket) {
-        socket.emit('chatMessage', message);
-    }
+    if (socket) socket.emit('chatMessage', message);
 }
 
 export function emitChangeMode(mode) {
-    const { socket } = getState();
-    if (socket) {
-        socket.emit('changeMode', mode);
-    }
+    if (socket) socket.emit('changeMode', mode);
 }
 
 export function emitPlayCard({ cardId, targetId, options = {} }) {
-    const { socket } = getState();
-    if (socket) {
-        socket.emit('playCard', { cardId, targetId, options });
-    }
+    if (socket) socket.emit('playCard', { cardId, targetId, options });
 }
 
 export function emitEndTurn() {
@@ -242,6 +208,5 @@ export function emitEndTurn() {
         alert("Você precisa jogar uma carta de valor neste turno!");
         return;
     }
-    
     socket.emit('endTurn');
 }
