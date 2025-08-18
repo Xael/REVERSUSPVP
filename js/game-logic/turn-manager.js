@@ -320,11 +320,9 @@ async function startNewRound(isFirstRound = false) {
     }
 
     if (!isFirstRound) {
-        // PvP check: The server now handles field effects for PvP.
-        if (!gameState.isPvp) {
-            await triggerFieldEffects();
-        }
-        if (checkGameEnd()) return;
+        // Trigger field effects now works for all modes, not just non-king battle
+        await triggerFieldEffects();
+        if (checkGameEnd()) return; // Stop if field effects ended the game
     }
     
     gameState.gamePhase = 'playing';

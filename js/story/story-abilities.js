@@ -88,7 +88,6 @@ export async function triggerNecroX(caster, target) {
  */
 export async function checkAndTriggerPawnLandingAbilities(player) {
     const { gameState } = getState();
-    if (gameState.isPvp) return; // Server is authoritative in PvP
     if (!gameState.isStoryMode) return; // Only story mode has landing abilities
 
     // --- King Necro Battle: Heart Collection ---
@@ -361,7 +360,6 @@ async function executeFieldEffect(player, effectName) {
  */
 export async function triggerFieldEffects() {
     const { gameState } = getState();
-    if (gameState.isPvp) return; // Server is authoritative in PvP
     const originalCurrentPlayer = gameState.currentPlayer;
 
     for (const id of gameState.playerIdsInGame) {
