@@ -1527,7 +1527,6 @@ body.screen-shaking {
     width: 100%;
 }
 
-
 #splash-animation-container {
     position: absolute;
     top: 0; left: 0;
@@ -2221,6 +2220,18 @@ body.screen-shaking {
 .target-player-3 { background: var(--player-3-color); }
 .target-player-4 { background: var(--player-4-color); }
 
+/* Username Modal */
+#username-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 5px;
+    border: 1px solid var(--text-secondary);
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
 /* PVP Modals */
 .pvp-modal-content {
     width: 90vw;
@@ -2270,12 +2281,6 @@ body.screen-shaking {
     box-shadow: 0 0 10px var(--accent-purple);
 }
 
-#pvp-username-modal .modal-content,
-#pvp-password-modal .modal-content {
-    width: 400px;
-}
-
-#pvp-username-input,
 #pvp-password-input {
     width: 100%;
     padding: 12px;
@@ -2286,6 +2291,41 @@ body.screen-shaking {
     font-size: 1rem;
     margin-bottom: 1rem;
 }
+
+/* Ranking Modal */
+.ranking-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+.ranking-list-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(0,0,0,0.15);
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+.ranking-list-item:nth-child(odd) {
+    background: rgba(0,0,0,0.25);
+}
+.ranking-rank {
+    font-weight: 700;
+    width: 4em;
+    flex-shrink: 0;
+}
+.ranking-name {
+    flex-grow: 1;
+}
+.ranking-wins {
+    font-weight: 600;
+    color: var(--accent-yellow);
+}
+.ranking-list-item.rank-1 .ranking-rank { color: #FFD700; }
+.ranking-list-item.rank-2 .ranking-rank { color: #C0C0C0; }
+.ranking-list-item.rank-3 .ranking-rank { color: #CD7F32; }
+
 
 /* PVP Lobby */
 .pvp-lobby-content {
@@ -2396,6 +2436,102 @@ body.screen-shaking {
     padding: 8px 12px;
     font-size: 0.9rem;
 }
+
+/* --- Profile Modal --- */
+.profile-content {
+    width: 700px;
+    max-width: 95vw;
+}
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(168, 218, 220, 0.2);
+}
+.profile-picture {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--text-secondary);
+}
+.profile-header h2 {
+    font-size: 2rem;
+}
+.profile-level-xp {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+.profile-level {
+    background-color: var(--accent-yellow);
+    color: var(--bg-main);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 700;
+}
+.xp-bar-container {
+    flex-grow: 1;
+    height: 20px;
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.xp-bar-fill {
+    width: 0%; /* Will be set by JS */
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+    border-radius: 10px;
+    transition: width 0.5s ease-in-out;
+}
+.profile-xp-text {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    text-align: center;
+    background-color: rgba(0,0,0,0.2);
+    padding: 1rem;
+    border-radius: 8px;
+}
+.profile-stats .stat-label {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+.profile-stats .stat-value {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+.profile-titles {
+    margin-top: 1rem;
+}
+.profile-titles h3 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+.titles-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+}
+.title-badge {
+    background-color: var(--accent-purple);
+    color: var(--text-primary);
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 
 /* --- ENDGAME SEQUENCE & CREDITS --- */
 #endgame-sequence-modal {

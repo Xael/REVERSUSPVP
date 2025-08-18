@@ -47,7 +47,6 @@ const appState = {
     socket: null, // Holds the socket.io client instance
     clientId: null, // The unique ID for this client, assigned by the server
     playerId: null, // Which player this client is controlling (e.g., 'player-1')
-    username: null, // Player's chosen username
     currentRoomId: null, // The ID of the room the player is currently in
 };
 
