@@ -15,95 +15,49 @@ import * as network from '../core/network.js';
 import { createCosmicGlowOverlay, shatterImage } from './animations.js';
 import { announceEffect } from '../core/sound.js';
 import { playCard } from '../game-logic/player-actions.js';
-import { renderRankingModal } from './ranking-renderer.js';
-
-const USER_STORAGE_KEY = 'reversus_user';
-
-/**
- * Handles the logic for a player entering the PvP mode.
- * Checks for a local user profile, creates one if it doesn't exist,
- * and then authenticates with the server.
- */
-function handlePvpOnlineClick() {
-    sound.initializeMusic();
-    let userData = JSON.parse(localStorage.getItem(USER_STORAGE_KEY));
-
-    if (userData && userData.uuid && userData.name) {
-        // User exists, connect and authenticate
-        if (!getState().isConnectionAttempted) {
-            updateState('isConnectionAttempted', true);
-            network.connectToServer();
-        }
-        network.emitAuthenticate(userData);
-    } else {
-        // First-time user, show modal to get their name
-        dom.usernameModal.classList.remove('hidden');
-    }
-}
-
-/**
- * Finalizes the creation of a guest user profile and authenticates.
- */
-function confirmUsername() {
-    const name = dom.usernameInput.value.trim();
-    if (name.length < 3) {
-        alert("Por favor, escolha um nome com pelo menos 3 caracteres.");
-        return;
-    }
-
-    const userData = {
-        uuid: crypto.randomUUID(),
-        name: name,
-    };
-
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    dom.usernameModal.classList.add('hidden');
-
-    if (!getState().isConnectionAttempted) {
-        updateState('isConnectionAttempted', true);
-        network.connectToServer();
-    }
-    network.emitAuthenticate(userData);
-}
-
 
 /**
  * Resets the game state after a player cancels an action modal.
+ * This is crucial to prevent the UI from getting stuck.
  */
 function cancelPlayerAction() {
     const { gameState } = getState();
+
+    // Hide all relevant action modals
     dom.targetModal.classList.add('hidden');
     dom.reversusTargetModal.classList.add('hidden');
     dom.reversusTotalChoiceModal.classList.add('hidden');
     dom.reversusIndividualEffectChoiceModal.classList.add('hidden');
     dom.pulaModal.classList.add('hidden');
 
+    // Reset game state to a clean "playing" state
     if (gameState) {
         gameState.gamePhase = 'playing';
-        gameState.selectedCard = null;
+        gameState.selectedCard = null; // This is the key fix
         gameState.reversusTarget = null;
         gameState.pulaTarget = null;
         updateState('reversusTotalIndividualFlow', false);
     }
+
+    // Re-render everything to reflect the changes (e.g., deselect card, update buttons)
     renderAll();
 }
 
 
 function handleCardClick(cardElement) {
     const { gameState, playerId } = getState();
-    const myPlayerId = gameState?.isPvp ? playerId : 'player-1';
     const cardId = parseFloat(cardElement.dataset.cardId);
-
-    if (!gameState || gameState.currentPlayer !== myPlayerId || gameState.gamePhase !== 'playing' || isNaN(cardId)) {
+    if (!gameState || gameState.currentPlayer !== playerId || gameState.gamePhase !== 'playing' || isNaN(cardId)) {
         return;
     }
 
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[playerId];
     const card = player.hand.find(c => c.id === cardId);
 
     if (card) {
         if (cardElement.classList.contains('disabled')) return;
         
+        // Disable Versatrix card if on cooldown
         if (card.name === 'Carta da Versatrix' && card.cooldown > 0) {
             updateLog(`A Carta da Versatrix está em recarga por mais ${card.cooldown} rodada(s).`);
             return;
@@ -118,8 +72,7 @@ async function handlePlayButtonClick() {
     dom.playButton.disabled = true;
 
     const { gameState, playerId } = getState();
-    const myPlayerId = gameState.isPvp ? playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[playerId];
     const card = gameState.selectedCard;
 
     if (!card) {
@@ -150,9 +103,8 @@ async function handlePlayButtonClick() {
 }
 
 async function handlePlayerTargetSelection(targetId) {
-    const { gameState, playerId } = getState();
-    const myPlayerId = gameState.isPvp ? playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const { gameState } = getState();
+    const player = gameState.players[gameState.currentPlayer];
     
     if (getState().reversusTotalIndividualFlow) {
         dom.targetModal.classList.add('hidden');
@@ -220,8 +172,7 @@ async function handlePulaPathSelection(chosenPathId) {
     if (!gameState.pulaTarget) return;
 
     const { card, targetPlayerId } = gameState.pulaTarget;
-    const myPlayerId = gameState.isPvp ? getState().playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[gameState.currentPlayer];
     
     dom.pulaModal.classList.add('hidden');
     
@@ -243,8 +194,7 @@ async function handleReversusEffectTypeSelection(effectTypeToReverse) {
     const { gameState } = getState();
     if (!gameState.reversusTarget) return;
     const { card, targetPlayerId } = gameState.reversusTarget;
-    const myPlayerId = gameState.isPvp ? getState().playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[gameState.currentPlayer];
     dom.reversusTargetModal.classList.add('hidden');
     
     if (gameState.isPvp) {
@@ -256,8 +206,7 @@ async function handleReversusEffectTypeSelection(effectTypeToReverse) {
 
 async function handleReversusTotalChoice(isGlobal) {
     const { gameState, playerId } = getState();
-    const myPlayerId = gameState.isPvp ? playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[playerId];
     const card = gameState.selectedCard;
     dom.reversusTotalChoiceModal.classList.add('hidden');
 
@@ -287,8 +236,7 @@ async function handleIndividualEffectLock(effectName) {
     if (!gameState.reversusTarget) return;
 
     const { card, targetPlayerId } = gameState.reversusTarget;
-    const myPlayerId = gameState.isPvp ? getState().playerId : 'player-1';
-    const player = gameState.players[myPlayerId];
+    const player = gameState.players[gameState.currentPlayer];
     dom.reversusIndividualEffectChoiceModal.classList.add('hidden');
 
     if (effectName === 'Pula') {
@@ -317,6 +265,8 @@ async function handleChatSend() {
 
     if (gameState && gameState.isPvp) {
         network.emitChatMessage(input);
+    } else {
+        // Handle local/AI chat if needed in the future
     }
     
     dom.chatInput.value = '';
@@ -332,6 +282,7 @@ async function animateBossDefeat(battleId) {
         await shatterImage(bossImageEl);
     }
 }
+
 
 async function handleStoryWinLoss(e) {
     const { battle, won } = e.detail;
@@ -352,6 +303,7 @@ async function handleStoryWinLoss(e) {
         await animateBossDefeat(battle);
         dom.appContainerEl.classList.add('hidden');
     }
+
 
     switch (battle) {
         case 'tutorial_necroverso':
@@ -455,35 +407,40 @@ async function handleRandomOpponentSelection() {
             dom.opponentSpinnerImage.src = currentOpponent.image;
             dom.opponentSpinnerName.textContent = currentOpponent.name;
             i++;
-        }, 100);
+        }, 100); // Cycle every 100ms
 
         setTimeout(() => {
             clearInterval(spinnerInterval);
             resolve();
-        }, 3000);
+        }, 3000); // Spin for 3 seconds
     });
 
     await spinnerPromise;
 
     const chosenOpponent = opponents[Math.floor(Math.random() * opponents.length)];
 
-    dom.opponentSpinnerImage.style.animation = 'none';
+    // Display the final choice
+    dom.opponentSpinnerImage.style.animation = 'none'; // Stop flicker
     dom.opponentSpinnerImage.src = chosenOpponent.image;
     dom.opponentSpinnerName.textContent = chosenOpponent.name;
     dom.randomOpponentSpinnerModal.querySelector('h2').textContent = 'Oponente Escolhido!';
     sound.playSoundEffect('escolhido');
 
+    // Wait a moment before starting the game
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     dom.randomOpponentSpinnerModal.classList.add('hidden');
+    // Reset modal for next time
     dom.randomOpponentSpinnerModal.querySelector('h2').textContent = 'Sorteando Oponente...';
     dom.opponentSpinnerImage.style.animation = 'opponent-flicker 0.1s linear infinite';
     
+    // Start the game with the chosen opponent
     initializeGame('solo', { numPlayers: 2, overrides: { 'player-2': { name: chosenOpponent.name, aiType: chosenOpponent.aiType } } });
 }
 
 
 export function initializeUiHandlers() {
+    // Listen for custom events dispatched by the network module
     document.addEventListener('showSplashScreen', showSplashScreen);
     document.addEventListener('playEndgameSequence', () => import('../story/story-controller.js').then(module => module.playEndgameSequence()));
     
@@ -506,10 +463,14 @@ export function initializeUiHandlers() {
     
     document.addEventListener('storyWinLoss', handleStoryWinLoss);
     
+    // This custom event is fired by the AI controller after its turn.
+    // This prevents a circular dependency between the AI and the turn manager.
     document.addEventListener('aiTurnEnded', () => {
          import('../game-logic/turn-manager.js').then(module => module.advanceToNextPlayer());
     });
 
+
+    // Splash Screen
     dom.quickStartButton.addEventListener('click', () => {
         sound.initializeMusic();
         dom.splashScreenEl.classList.add('hidden');
@@ -520,32 +481,17 @@ export function initializeUiHandlers() {
         sound.initializeMusic();
         initializeGame('inversus', { numPlayers: 2, overrides: { 'player-2': { name: 'Inversus', aiType: 'inversus' } } });
     });
-
-    dom.pvpOnlineButton.addEventListener('click', handlePvpOnlineClick);
-    dom.confirmUsernameButton.addEventListener('click', confirmUsername);
-    dom.usernameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') confirmUsername();
+    dom.pvpModeButton.addEventListener('click', () => {
+        const { isLoggedIn } = getState();
+        if (!isLoggedIn) {
+            alert("É necessário fazer login com o Google para jogar no modo PVP.");
+            return;
+        }
+        network.emitListRooms(); // Fetch rooms after login is confirmed
+        dom.splashScreenEl.classList.add('hidden');
+        dom.pvpRoomListModal.classList.remove('hidden');
     });
-
-
-    dom.rankingButton.addEventListener('click', () => {
-        network.emitGetRanking();
-        dom.rankingModal.classList.remove('hidden');
-    });
-    dom.closeRankingButton.addEventListener('click', () => {
-        dom.rankingModal.classList.add('hidden');
-    });
-
-    dom.profileButton.addEventListener('click', () => {
-        network.emitGetMyProfile();
-        dom.profileModal.classList.remove('hidden');
-    });
-    dom.closeProfileButton.addEventListener('click', () => {
-        dom.profileModal.classList.add('hidden');
-    });
-
-    dom.instructionsButton.addEventListener('click', () => { dom.rulesModal.classList.remove('hidden'); });
-    dom.creditsButton.addEventListener('click', () => { dom.creditsModal.classList.remove('hidden'); });
+    
     dom.continueButton.addEventListener('click', saveLoad.loadGameState);
     dom.achievementsButton.addEventListener('click', () => { renderAchievementsModal(); dom.achievementsModal.classList.remove('hidden'); });
     dom.splashLogo.addEventListener('click', () => {
@@ -558,10 +504,28 @@ export function initializeUiHandlers() {
         }
     });
 
-    dom.closeRulesButton.addEventListener('click', () => dom.rulesModal.classList.add('hidden'));
-    dom.closeCreditsButton.addEventListener('click', () => dom.creditsModal.classList.add('hidden'));
+    // Modals
     dom.closeAchievementsButton.addEventListener('click', () => dom.achievementsModal.classList.add('hidden'));
+    dom.versatrixCardInfoContinueButton.addEventListener('click', () => dom.versatrixCardInfoModal.classList.add('hidden'));
+    dom.fieldEffectInfoCloseButton.addEventListener('click', () => dom.fieldEffectInfoModal.classList.add('hidden'));
+    dom.versatrixFieldContinueButton.addEventListener('click', () => dom.versatrixFieldModal.classList.add('hidden'));
+
+    // New Info Modal Handlers
+    dom.infoButton.addEventListener('click', () => { dom.infoModal.classList.remove('hidden'); });
+    dom.closeInfoButton.addEventListener('click', () => { dom.infoModal.classList.add('hidden'); });
+    dom.infoModal.addEventListener('click', (e) => {
+        if (e.target.matches('.info-tab-button')) {
+            const tabId = e.target.dataset.tab;
+            dom.infoModal.querySelectorAll('.info-tab-button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            dom.infoModal.querySelectorAll('.info-tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === `${tabId}-tab-content`);
+            });
+        }
+    });
+
     
+    // Game Setup (Single Player)
     dom.solo2pButton.addEventListener('click', () => {
         dom.gameSetupModal.classList.add('hidden');
         dom.oneVOneSetupModal.classList.remove('hidden');
@@ -592,6 +556,7 @@ export function initializeUiHandlers() {
         dom.splashScreenEl.classList.remove('hidden');
     });
 
+    // In-Game actions
     dom.playButton.addEventListener('click', handlePlayButtonClick);
     dom.endTurnButton.addEventListener('click', () => {
         const { gameState } = getState();
@@ -638,6 +603,7 @@ export function initializeUiHandlers() {
     });
     dom.cardViewerCloseButton.addEventListener('click', () => dom.cardViewerModalEl.classList.add('hidden'));
 
+    // Targeting Modals
     dom.targetPlayerButtonsEl.addEventListener('click', e => {
         if (e.target.matches('[data-player-id]')) {
             handlePlayerTargetSelection(e.target.dataset.playerId);
@@ -672,6 +638,7 @@ export function initializeUiHandlers() {
         }
     });
 
+    // Game Over & Restart
     dom.restartButton.addEventListener('click', (e) => {
         const action = e.currentTarget.dataset.action;
         dom.gameOverModal.classList.add('hidden');
@@ -689,11 +656,13 @@ export function initializeUiHandlers() {
         }
     });
     
+    // Chat
     dom.chatSendButton.addEventListener('click', handleChatSend);
     dom.chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleChatSend();
     });
 
+    // Sound and Fullscreen
     dom.muteButton.addEventListener('click', sound.toggleMute);
     dom.volumeSlider.addEventListener('input', (e) => sound.setVolume(parseFloat(e.target.value)));
     dom.nextTrackButton.addEventListener('click', sound.changeTrack);
@@ -709,6 +678,7 @@ export function initializeUiHandlers() {
         }
     });
 
+    // In-Game Menu
     dom.debugButton.addEventListener('click', () => dom.gameMenuModal.classList.remove('hidden'));
     dom.gameMenuCloseButton.addEventListener('click', () => dom.gameMenuModal.classList.add('hidden'));
     dom.menuSaveGameButton.addEventListener('click', () => {
@@ -725,6 +695,7 @@ export function initializeUiHandlers() {
         }
     });
 
+    // Confirmation Modals
     dom.saveGameYesButton.addEventListener('click', saveLoad.saveGameState);
     dom.saveGameNoButton.addEventListener('click', () => dom.saveGameConfirmModal.classList.add('hidden'));
     dom.exitGameYesButton.addEventListener('click', () => {
@@ -733,6 +704,7 @@ export function initializeUiHandlers() {
     });
     dom.exitGameNoButton.addEventListener('click', () => dom.exitGameConfirmModal.classList.add('hidden'));
 
+    // PVP Handlers
     dom.pvpRoomListModal.addEventListener('click', (e) => {
         if (e.target.classList.contains('pvp-enter-room-button')) {
             const roomId = e.target.dataset.roomId;
@@ -769,6 +741,7 @@ export function initializeUiHandlers() {
         if (e.key === 'Enter') handleLobbyChat();
     });
 
+    // Secret Splash Screen Card
     dom.splashAnimationContainerEl.addEventListener('click', e => {
         if (e.target.id === 'secret-versatrix-card') {
             achievements.grantAchievement('versatrix_card_collected');
@@ -779,6 +752,7 @@ export function initializeUiHandlers() {
         }
     });
 
+    // Xael Challenge
     dom.xaelPopup.addEventListener('click', () => {
         dom.xaelPopup.classList.add('hidden');
         const { gameState } = getState();

@@ -43,7 +43,7 @@ export const updateLobbyUi = (roomData) => {
         
         if (player) {
             const hostStar = player.id === roomData.hostId ? ' <span class="master-star">★</span>' : '';
-            slotEl.innerHTML = `${player.name}${hostStar}`;
+            slotEl.innerHTML = `${player.username}${hostStar}`;
         } else {
             slotEl.textContent = 'Aguardando...';
         }
@@ -54,6 +54,7 @@ export const updateLobbyUi = (roomData) => {
     dom.lobbyGameModeEl.value = roomData.mode;
     dom.lobbyGameModeEl.disabled = !isHost;
 
+    // CORREÇÃO: Habilita o botão de iniciar com base no modo de jogo e contagem de jogadores
     const playerCount = roomData.players.length;
     let canStart = false;
     switch (roomData.mode) {

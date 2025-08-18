@@ -11,12 +11,10 @@ export const splashAnimationContainerEl = document.getElementById('splash-animat
 export const quickStartButton = document.getElementById('quick-start-button');
 export const storyModeButton = document.getElementById('story-mode-button');
 export const continueButton = document.getElementById('continue-button');
-export const instructionsButton = document.getElementById('instructions-button');
-export const creditsButton = document.getElementById('credits-button');
-export const rulesModal = document.getElementById('rules-modal');
-export const closeRulesButton = document.getElementById('close-rules-button');
-export const creditsModal = document.getElementById('credits-modal');
-export const closeCreditsButton = document.getElementById('close-credits-button');
+export const pvpModeButton = document.getElementById('pvp-mode-button');
+export const infoButton = document.getElementById('info-button');
+export const infoModal = document.getElementById('info-modal');
+export const closeInfoButton = document.getElementById('close-info-button');
 export const gameSetupModal = document.getElementById('game-setup-modal');
 export const solo2pButton = document.getElementById('solo-2p-button');
 export const solo3pButton = document.getElementById('solo-3p-button');
@@ -130,7 +128,6 @@ export const saveGameNoButton = document.getElementById('save-game-no-button');
 export const exitGameConfirmModal = document.getElementById('exit-game-confirm-modal');
 export const exitGameYesButton = document.getElementById('exit-game-yes-button');
 export const exitGameNoButton = document.getElementById('exit-game-no-button');
-export const versionFooter = document.getElementById('version-footer');
 export const achievementsButton = document.getElementById('achievements-button');
 export const achievementsModal = document.getElementById('achievements-modal');
 export const achievementsGrid = document.getElementById('achievements-grid');
@@ -187,31 +184,18 @@ export const chatInputArea = document.getElementById('chat-input-area');
 export const chatInput = document.getElementById('chat-input');
 export const chatSendButton = document.getElementById('chat-send-button');
 
-// PVP 
-export const pvpOnlineButton = document.getElementById('pvp-online-button');
-export const usernameModal = document.getElementById('username-modal');
-export const usernameInput = document.getElementById('username-input');
-export const confirmUsernameButton = document.getElementById('confirm-username-button');
-
-// Ranking
+// PVP / Auth
 export const rankingButton = document.getElementById('ranking-button');
-export const rankingModal = document.getElementById('ranking-modal');
-export const rankingList = document.getElementById('ranking-list');
-export const closeRankingButton = document.getElementById('close-ranking-button');
-
-// Profile
 export const profileButton = document.getElementById('profile-button');
+export const rankingModal = document.getElementById('ranking-modal');
+export const closeRankingButton = document.getElementById('close-ranking-button');
 export const profileModal = document.getElementById('profile-modal');
 export const closeProfileButton = document.getElementById('close-profile-button');
-export const profilePicture = document.getElementById('profile-picture');
-export const profileName = document.getElementById('profile-name');
-export const profileLevel = document.getElementById('profile-level');
-export const xpBarFill = document.getElementById('xp-bar-fill');
-export const profileXpText = document.getElementById('profile-xp-text');
-export const profileWins = document.getElementById('profile-wins');
-export const profileLosses = document.getElementById('profile-losses');
-export const profileWinrate = document.getElementById('profile-winrate');
-export const profileTitlesList = document.getElementById('profile-titles-list');
-
-export const pvpGreeting = document.getElementById('pvp-greeting');
+export const rankingContainer = document.getElementById('ranking-container');
+export const profileContainer = document.getElementById('profile-container');
+export const googleSignInContainer = document.getElementById('google-signin-container');
+export const userProfileDisplay = document.getElementById('user-profile-display');
+export const userAvatar = document.getElementById('user-avatar');
+export const userName = document.getElementById('user-name');
+export const pvpUsernameModal = document.getElementById('pvp-username-modal'); // Kept for potential future use
 export const pvpCreateRoomButton = document.getElementById('pvp-create-room-button');

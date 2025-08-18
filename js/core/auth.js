@@ -1,0 +1,46 @@
+// js/core/auth.js
+import { getState } from './state.js';
+import * as network from './network.js';
+
+/**
+ * Handles the credential response from Google Sign-In.
+ * @param {object} response - The credential response object from Google.
+ */
+function handleCredentialResponse(response) {
+    console.log("Google credential response received.");
+    const { socket } = getState();
+    if (socket && response.credential) {
+        // Send the ID token to the server for verification
+        socket.emit('google-login', { token: response.credential });
+    } else {
+        console.error("Socket not available or credential missing in response.");
+        alert("Não foi possível processar o login. Tente novamente.");
+    }
+}
+
+/**
+ * Initializes the Google Sign-In client and renders the sign-in button.
+ */
+export function initializeGoogleSignIn() {
+    window.onload = function () {
+        if (typeof google === 'undefined') {
+            console.error("Google Identity Services library not loaded.");
+            return;
+        }
+
+        google.accounts.id.initialize({
+            client_id: "2701468714-udbjtea2v5d1vnr8sdsshi3lem60dvkn.apps.googleusercontent.com",
+            callback: handleCredentialResponse
+        });
+
+        const signInButton = document.getElementById('google-signin-button');
+        if (signInButton) {
+            google.accounts.id.renderButton(
+                signInButton,
+                { theme: "outline", size: "large", type: "standard" } 
+            );
+        } else {
+            console.error("Google Sign-In button container not found.");
+        }
+    };
+}

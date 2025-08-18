@@ -3,6 +3,7 @@ import { showSplashScreen } from '../ui/splash-screen.js';
 import { setupPvpRooms } from '../game-controller.js';
 import { checkForSavedGame } from './save-load.js';
 import { loadAchievements } from './achievements.js';
+import { initializeGoogleSignIn } from './auth.js';
 
 // This is the main entry point of the application.
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,4 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Displays the initial splash screen.
     showSplashScreen();
+
+    // Initializes Google Sign-In functionality
+    initializeGoogleSignIn();
 });
