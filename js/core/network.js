@@ -33,6 +33,26 @@ export function connectToServer() {
         showSplashScreen();
     });
 
+    socket.on('loginSuccess', (userProfile) => {
+        console.log('Login successful on client:', userProfile);
+        updateState('isLoggedIn', true);
+        updateState('userProfile', userProfile);
+        updateState('username', userProfile.name); // Compatibilidade com o sistema de salas
+
+        // Atualizações da UI
+        dom.googleSignInContainer.classList.add('hidden');
+        dom.userProfileDisplay.classList.remove('hidden');
+        dom.userAvatar.src = userProfile.avatarUrl;
+        dom.userName.textContent = userProfile.name;
+        dom.profileButton.classList.remove('hidden');
+        dom.rankingButton.classList.remove('hidden'); 
+    });
+
+    socket.on('loginError', (message) => {
+        console.error('Login failed:', message);
+        alert(`Erro de login: ${message}`);
+    });
+
     socket.on('roomList', (rooms) => {
         renderPvpRooms(rooms);
     });
@@ -178,16 +198,16 @@ export function emitListRooms() {
 }
 
 export function emitCreateRoom() {
-    const { socket, username } = getState();
-    if (socket && username) {
-        socket.emit('createRoom', { username });
+    const { socket } = getState();
+    if (socket) {
+        socket.emit('createRoom');
     }
 }
 
 export function emitJoinRoom(roomId) {
-    const { socket, username } = getState();
-    if (socket && username) {
-        socket.emit('joinRoom', { roomId, username });
+    const { socket } = getState();
+    if (socket) {
+        socket.emit('joinRoom', { roomId });
     }
 }
 
