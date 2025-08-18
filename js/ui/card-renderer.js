@@ -29,24 +29,26 @@ export const getCardImageUrl = (card, isHidden) => {
  */
 export const renderCard = (card, context, playerId) => {
     const { gameState, playerId: myPlayerId } = getState();
-    const isMyCard = playerId === myPlayerId;
     const classList = ['card', card.type];
-    
-    // CORREÇÃO: Lógica de visibilidade da carta refeita para priorizar o estado do servidor.
-    // Isso garante que o jogador sempre veja suas próprias cartas, a menos que o servidor diga o contrário.
-    const isHiddenByServer = card.isHidden === true;
-    
-    // Se for minha carta, nunca escondo (mesmo em PvP).
-    // Caso contrário, confio no servidor ou na lógica padrão de oponente.
-    const isHidden = isMyCard ? false : (isHiddenByServer || (
-        context === 'opponent-hand' && !(gameState.revealedHands || []).includes(playerId)
-    ));
 
-    // Logic to obscure cards (Contravox ability)
-    const isCardObscuredByContravox = isMyCard && context === 'player-hand' && gameState.player1CardsObscured;
+    // CORREÇÃO: Lógica de visibilidade robusta que diferencia os modos de jogo.
+    let isHidden;
+    if (gameState.isPvp) {
+        // Em PvP, a visibilidade é determinada pelo ID do jogador da sessão e pelos dados do servidor.
+        const isMyCard = playerId === myPlayerId;
+        isHidden = !isMyCard && !(gameState.revealedHands || []).includes(playerId);
+    } else {
+        // Em single-player, o 'Jogador 1' é sempre o humano e suas cartas são visíveis.
+        const isHumanPlayer = playerId === 'player-1';
+        isHidden = !isHumanPlayer && !(gameState.revealedHands || []).includes(playerId);
+    }
+
+    // Logic to obscure cards (Contravox ability) - also needs to be robust
+    const isMyTurnToSeeObscured = gameState.isPvp ? (playerId === myPlayerId) : (playerId === 'player-1');
+    const isCardObscuredByContravox = isMyTurnToSeeObscured && context === 'player-hand' && gameState.player1CardsObscured;
 
     let isCardDisabled = card.isBlocked || false;
-    if (isMyCard && context === 'player-hand') {
+    if (isMyTurnToSeeObscured && context === 'player-hand') {
         const player = gameState.players[playerId];
         const valueCardsInHandCount = player.hand.filter(c => c.type === 'value').length;
         
@@ -55,13 +57,13 @@ export const renderCard = (card, context, playerId) => {
         }
     }
     
-    if (isMyCard && context === 'player-hand' && gameState.selectedCard?.id === card.id) classList.push('selected');
+    if (isMyTurnToSeeObscured && context === 'player-hand' && gameState.selectedCard?.id === card.id) classList.push('selected');
     if (isCardDisabled) classList.push('disabled');
     if (context === 'modal') classList.push('modal-card');
     
     if (card.name === 'Reversus Total') {
         classList.push('reversus-total-card');
-        if (isMyCard) {
+        if (isMyTurnToSeeObscured) {
             classList.push('reversus-total-glow');
         }
     }

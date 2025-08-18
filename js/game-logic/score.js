@@ -20,7 +20,6 @@ export function updateLiveScoresAndWinningStatus() {
         const effect = player.effects.score;
         let restoValue = player.resto ? player.resto.value : 0;
         
-        // CORREÇÃO DEFENSIVA: Garante que activeFieldEffects seja um array antes de usar .find()
         const activeEffects = gameState.activeFieldEffects || [];
         const restoMaiorEffect = activeEffects.find(fe => fe.name === 'Resto Maior' && fe.appliesTo === id);
         if(restoMaiorEffect) restoValue = 10;
@@ -34,19 +33,12 @@ export function updateLiveScoresAndWinningStatus() {
         scores[id] = score;
     });
 
-    // --- Part 2: Determine winning/losing status for each player and update UI ---
-    // Clear previous statuses
-    dom.leftScoreStatus.textContent = '';
-    dom.leftScoreStatus.className = 'side-score-status';
-    dom.rightScoreStatus.textContent = '';
-    dom.rightScoreStatus.className = 'side-score-status';
-
+    // --- Part 2: Determine winning/losing status for each player ---
     const activePlayers = gameState.playerIdsInGame.filter(id => !gameState.players[id].isEliminated);
-    const sortedPlayers = [...activePlayers].sort((a, b) => scores[b] - scores[a]);
-    
-    if (sortedPlayers.length > 1) {
-        const highestScore = scores[sortedPlayers[0]];
-        const lowestScore = scores[sortedPlayers[sortedPlayers.length - 1]];
+    if (activePlayers.length > 1) {
+        const playerScores = activePlayers.map(id => scores[id]);
+        const highestScore = Math.max(...playerScores);
+        const lowestScore = Math.min(...playerScores);
 
         activePlayers.forEach(id => {
             if (highestScore > lowestScore) {
@@ -57,46 +49,54 @@ export function updateLiveScoresAndWinningStatus() {
                 gameState.players[id].status = 'neutral';
             }
         });
-    } else if (sortedPlayers.length === 1) {
-        // If only one player is left, they are neutral.
-        gameState.players[sortedPlayers[0]].status = 'neutral';
+    } else if (activePlayers.length === 1) {
+        gameState.players[activePlayers[0]].status = 'neutral';
     }
-
 
     // --- Part 3: Update side score boxes and their statuses ---
+    updateSideScoreBoxes(scores);
+}
+
+
+/**
+ * Updates the side score boxes and team headers based on the current scores and game mode.
+ * @param {object} scores - An object mapping player IDs to their current scores.
+ */
+function updateSideScoreBoxes(scores) {
+    const { gameState } = getState();
+    
+    // Clear previous statuses and hide elements by default
+    dom.leftScoreStatus.textContent = '';
+    dom.leftScoreStatus.className = 'side-score-status';
+    dom.rightScoreStatus.textContent = '';
+    dom.rightScoreStatus.className = 'side-score-status';
+    dom.leftScoreBox.classList.add('hidden');
+    dom.rightScoreBox.classList.add('hidden');
+    dom.teamScoresContainer.classList.add('hidden');
+
+
     const player1 = gameState.players['player-1'];
     const opponents = gameState.playerIdsInGame.filter(id => id !== 'player-1' && !gameState.players[id].isEliminated);
-
-    // Hide boxes if there are no opponents (e.g., loading state)
-    if (opponents.length === 0) {
-        dom.leftScoreBox.classList.add('hidden');
-        dom.rightScoreBox.classList.add('hidden');
-        return;
-    }
-
-    // Always show and update the human player's score box (left)
-    dom.leftScoreBox.classList.remove('hidden');
-    dom.leftScoreBox.className = 'side-score-box player-1-score'; // Always blue
     
+    if (!player1) return; // Exit if player 1 doesn't exist
 
-    // Handle duo mode score display for side box and header
+    // In duo mode, scores are aggregated by team.
     if (gameState.gameMode === 'duo') {
         const teamA_Ids = gameState.currentStoryBattle === 'necroverso_final' ? ['player-1', 'player-4'] : config.TEAM_A;
         const teamB_Ids = gameState.currentStoryBattle === 'necroverso_final' ? ['player-2', 'player-3'] : config.TEAM_B;
         
-        let teamAScore = 0;
-        teamA_Ids.forEach(id => { if (gameState.players[id]) teamAScore += gameState.players[id].liveScore; });
+        let teamAScore = teamA_Ids.reduce((sum, id) => sum + (scores[id] || 0), 0);
+        let teamBScore = teamB_Ids.reduce((sum, id) => sum + (scores[id] || 0), 0);
         
-        let teamBScore = 0;
-        teamB_Ids.forEach(id => { if (gameState.players[id]) teamBScore += gameState.players[id].liveScore; });
-        
-        // Update Side Score Boxes
+        // Update Side Score Boxes for Teams
+        dom.leftScoreBox.classList.remove('hidden');
+        dom.leftScoreBox.className = 'side-score-box player-1-score'; // Team A is always blue
         dom.leftScoreValue.textContent = teamAScore;
+
         dom.rightScoreBox.classList.remove('hidden');
-        dom.rightScoreBox.className = 'side-score-box player-2-score';
+        dom.rightScoreBox.className = 'side-score-box player-2-score'; // Team B is always red
         dom.rightScoreValue.textContent = teamBScore;
         
-        // Update Status Text for Both Teams
         if (teamAScore > teamBScore) {
             dom.leftScoreStatus.textContent = 'Ganhando';
             dom.leftScoreStatus.classList.add('winning');
@@ -109,39 +109,45 @@ export function updateLiveScoresAndWinningStatus() {
             dom.leftScoreStatus.classList.add('losing');
         }
 
-        // Update Header Scores
+        // Update Header Team Scores (with hearts for the final battle)
         dom.teamScoresContainer.classList.remove('hidden');
-        let teamAHeartsHTML = '', teamBHeartsHTML = '';
-        if (gameState.currentStoryBattle === 'necroverso_final') {
-            teamAHeartsHTML = `<span class="header-hearts">${'❤'.repeat(gameState.teamA_hearts)}</span>`;
-            teamBHeartsHTML = `<span class="header-hearts">${'❤'.repeat(gameState.teamB_hearts)}</span>`;
-        }
+        let teamAHeartsHTML = gameState.currentStoryBattle === 'necroverso_final' ? `<span class="header-hearts">${'❤'.repeat(gameState.teamA_hearts)}</span>` : '';
+        let teamBHeartsHTML = gameState.currentStoryBattle === 'necroverso_final' ? `<span class="header-hearts">${'❤'.repeat(gameState.teamB_hearts)}</span>` : '';
+        
         dom.teamScoresContainer.innerHTML = `
-            <div class="team-score team-a"><span>Sua Equipe: ${teamAScore}</span>${teamAHeartsHTML}</div>
-            <div class="team-score team-b"><span>Equipe Necroverso: ${teamBScore}</span>${teamBHeartsHTML}</div>
+            <div class="team-score team-a">
+                <span>Time Azul/Verde: ${teamAScore}</span>
+                ${teamAHeartsHTML}
+            </div>
+            <div class="team-score team-b">
+                <span>Time Vermelho/Amarelo: ${teamBScore}</span>
+                ${teamBHeartsHTML}
+            </div>
         `;
-    } else { // Solo modes (1v1, 1v2, 1v3)
+
+    } else { // Solo modes (1v1, 1v2, 1v3, etc.)
+        // Always show and update the human player's score box (left)
+        dom.leftScoreBox.classList.remove('hidden');
+        dom.leftScoreBox.className = 'side-score-box player-1-score'; // Always blue for player 1
         dom.leftScoreValue.textContent = scores['player-1'] || 0;
-        if (player1.status === 'winning') {
+        if(player1.status === 'winning') {
             dom.leftScoreStatus.textContent = 'Ganhando';
             dom.leftScoreStatus.classList.add('winning');
         } else if (player1.status === 'losing') {
             dom.leftScoreStatus.textContent = 'Perdendo';
             dom.leftScoreStatus.classList.add('losing');
         }
+        
+        // Find the leading opponent to display on the right side
+        if (opponents.length > 0) {
+            const leadingOpponent = opponents.sort((a, b) => (scores[b] || 0) - (scores[a] || 0))[0];
+            const opponentPlayer = gameState.players[leadingOpponent];
+            const pIdNum = parseInt(leadingOpponent.split('-')[1]);
 
-        dom.teamScoresContainer.classList.add('hidden'); // Hide header scores in solo
-        dom.rightScoreBox.classList.remove('hidden');
-
-        const winningOpponentId = opponents.sort((a, b) => scores[b] - scores[a])[0];
-        if (winningOpponentId) {
-            const opponentPlayer = gameState.players[winningOpponentId];
-            const opponentPIdNum = parseInt(opponentPlayer.id.split('-')[1]);
+            dom.rightScoreBox.classList.remove('hidden');
+            dom.rightScoreBox.className = `side-score-box player-${pIdNum}-score`;
+            dom.rightScoreValue.textContent = scores[leadingOpponent] || 0;
             
-            dom.rightScoreBox.className = `side-score-box player-${opponentPIdNum}-score`;
-            dom.rightScoreValue.textContent = scores[winningOpponentId] || 0;
-
-            // Update Right Status Text for the displayed opponent
             if (opponentPlayer.status === 'winning') {
                 dom.rightScoreStatus.textContent = 'Ganhando';
                 dom.rightScoreStatus.classList.add('winning');
@@ -149,8 +155,6 @@ export function updateLiveScoresAndWinningStatus() {
                 dom.rightScoreStatus.textContent = 'Perdendo';
                 dom.rightScoreStatus.classList.add('losing');
             }
-        } else {
-            dom.rightScoreBox.classList.add('hidden');
         }
     }
 }

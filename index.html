@@ -52,7 +52,14 @@
     <!-- User Profile & Login -->
     <div id="user-profile-display" class="user-profile-display hidden">
         <img id="user-avatar" src="" alt="User Avatar">
-        <span id="user-name"></span>
+        <div class="user-info">
+             <span id="user-name"></span>
+             <div class="xp-bar-container">
+                 <div id="xp-bar-fill"></div>
+                 <span id="xp-bar-text"></span>
+             </div>
+        </div>
+        <div id="user-level" class="user-level"></div>
     </div>
     <div id="google-signin-container">
         <div id="google-signin-button"></div>
@@ -82,8 +89,8 @@
 
     <!-- Ranking Modal -->
     <div id="ranking-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2>🏆 Ranking - Top 10 🏆</h2>
+        <div class="modal-content ranking-modal-content">
+            <h2 class="ranking-title">🏆 Ranking - Top 10 🏆</h2>
             <div id="ranking-container">
                 <!-- Ranking data will be rendered here -->
                 <p>Carregando ranking...</p>
@@ -94,7 +101,7 @@
 
     <!-- Profile Modal -->
     <div id="profile-modal" class="modal-overlay hidden">
-        <div class="modal-content">
+        <div class="modal-content profile-modal-content">
             <h2 id="profile-modal-title">Perfil do Jogador</h2>
             <div id="profile-container">
                 <!-- Profile data will be rendered here -->
