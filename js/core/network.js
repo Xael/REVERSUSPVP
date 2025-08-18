@@ -41,7 +41,6 @@ export function connectToServer() {
     });
 
     socket.on('loginSuccess', ({ user, rooms }) => {
-        updateState('authenticatedUser', user);
         dom.profileButton.classList.remove('hidden'); // Mostra o botão de perfil
         dom.splashScreenEl.classList.add('hidden');
         dom.pvpRoomListModal.classList.remove('hidden');
@@ -145,8 +144,8 @@ export function connectToServer() {
     });
 }
 
-export function emitLoginWithGoogle(token) {
-    if (socket) socket.emit('loginWithGoogle', { token });
+export function emitAuthenticate(userData) {
+    if (socket) socket.emit('authenticate', userData);
 }
 
 export function emitGetRanking() {
@@ -154,7 +153,12 @@ export function emitGetRanking() {
 }
 
 export function emitGetMyProfile() {
-    if (socket) socket.emit('getMyProfile');
+    if (socket) {
+        const userData = JSON.parse(localStorage.getItem('reversus_user'));
+        if (userData && userData.uuid) {
+            socket.emit('getMyProfile', { uuid: userData.uuid });
+        }
+    }
 }
 
 export function emitListRooms() {

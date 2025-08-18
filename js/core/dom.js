@@ -187,8 +187,11 @@ export const chatInputArea = document.getElementById('chat-input-area');
 export const chatInput = document.getElementById('chat-input');
 export const chatSendButton = document.getElementById('chat-send-button');
 
-// PVP / Google Sign-In
-export const googleSigninButton = document.getElementById('google-signin-button');
+// PVP 
+export const pvpOnlineButton = document.getElementById('pvp-online-button');
+export const usernameModal = document.getElementById('username-modal');
+export const usernameInput = document.getElementById('username-input');
+export const confirmUsernameButton = document.getElementById('confirm-username-button');
 
 // Ranking
 export const rankingButton = document.getElementById('ranking-button');

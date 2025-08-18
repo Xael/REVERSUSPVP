@@ -1526,13 +1526,6 @@ body.screen-shaking {
 .splash-button-container .control-button {
     width: 100%;
 }
-#google-signin-button {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%; /* Match other buttons */
-}
-
 
 #splash-animation-container {
     position: absolute;
@@ -2226,6 +2219,18 @@ body.screen-shaking {
 .target-player-2 { background: var(--player-2-color); color: var(--text-primary); }
 .target-player-3 { background: var(--player-3-color); }
 .target-player-4 { background: var(--player-4-color); }
+
+/* Username Modal */
+#username-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 5px;
+    border: 1px solid var(--text-secondary);
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
 
 /* PVP Modals */
 .pvp-modal-content {

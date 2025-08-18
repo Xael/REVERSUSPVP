@@ -15,8 +15,6 @@
       Isso é mais rápido, confiável e resolve o erro "io is not defined".
     -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <!-- Google Sign-In Client Library -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script type="module" src="js/core/index.js"></script>
     <script type="module" src="js/core/shortcuts.js"></script>
 <script type="importmap">
@@ -62,17 +60,26 @@
                     <button id="quick-start-button" class="control-button btn-p1-color">Início Rápido</button>
                     <button id="story-mode-button" class="control-button btn-p3-color">Modo História</button>
                     <button id="continue-button" class="control-button btn-p4-color" disabled>CONTINUAR</button>
+                    <button id="pvp-online-button" class="control-button btn-p3-color">PVP Online</button>
                     <button id="achievements-button" class="control-button btn-neutral-color hidden">Conquistas</button>
                     <button id="instructions-button" class="control-button btn-neutral-color">Instruções</button>
                     <button id="credits-button" class="control-button btn-secondary-color">Créditos</button>
-                    <!-- Botão de login do Google -->
-                    <div id="google-signin-button"></div>
                     <button id="ranking-button" class="control-button btn-neutral-color">Ranking</button>
                     <button id="profile-button" class="control-button btn-neutral-color hidden">Meu Perfil</button>
                     <button id="inversus-mode-button" class="control-button btn-inversus-color hidden">INVERSUS</button>
                 </div>
             </div>
              <div id="version-footer">Versão Final Final 2.0</div>
+        </div>
+    </div>
+
+    <!-- Username Modal -->
+    <div id="username-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="width: 400px;">
+            <h2>Escolha seu Nome de Jogador</h2>
+            <p>Este nome será exibido para outros jogadores no modo online.</p>
+            <input type="text" id="username-input" placeholder="Digite seu nome..." maxlength="20">
+            <button id="confirm-username-button" class="control-button">Confirmar</button>
         </div>
     </div>
 

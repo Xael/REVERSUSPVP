@@ -17,65 +17,55 @@ import { announceEffect } from '../core/sound.js';
 import { playCard } from '../game-logic/player-actions.js';
 import { renderRankingModal } from './ranking-renderer.js';
 
+const USER_STORAGE_KEY = 'reversus_user';
 
 /**
- * Initializes the Google Sign-In button and handles the authentication callback.
- * This function now polls for the Google library to avoid race conditions.
- * @param {number} [tries=0] - Internal counter for retry attempts.
+ * Handles the logic for a player entering the PvP mode.
+ * Checks for a local user profile, creates one if it doesn't exist,
+ * and then authenticates with the server.
  */
-function initializeGoogleSignIn(tries = 0) {
-    // Adicione o seu Google Client ID aqui. Por segurança, em um projeto real,
-    // isso viria de uma variável de ambiente.
-    const GOOGLE_CLIENT_ID = "2701468714-udbjtea2v5d1vnr8sdsshi3lem60dvkn.apps.googleusercontent.com";
+function handlePvpOnlineClick() {
+    sound.initializeMusic();
+    let userData = JSON.parse(localStorage.getItem(USER_STORAGE_KEY));
 
-    if (typeof google === 'undefined') {
-        if (tries > 50) { // Tenta por 5 segundos
-            console.error("Google Sign-In script failed to load in time.");
-            alert("Não foi possível carregar a funcionalidade de login. Por favor, verifique sua conexão e tente recarregar a página.");
-            if (dom.googleSigninButton) {
-                dom.googleSigninButton.innerHTML = '<button class="control-button" disabled>Login Indisponível</button>';
-            }
-            return;
+    if (userData && userData.uuid && userData.name) {
+        // User exists, connect and authenticate
+        if (!getState().isConnectionAttempted) {
+            updateState('isConnectionAttempted', true);
+            network.connectToServer();
         }
-        // Se não carregou, espera e tenta novamente.
-        setTimeout(() => initializeGoogleSignIn(tries + 1), 100);
+        network.emitAuthenticate(userData);
+    } else {
+        // First-time user, show modal to get their name
+        dom.usernameModal.classList.remove('hidden');
+    }
+}
+
+/**
+ * Finalizes the creation of a guest user profile and authenticates.
+ */
+function confirmUsername() {
+    const name = dom.usernameInput.value.trim();
+    if (name.length < 3) {
+        alert("Por favor, escolha um nome com pelo menos 3 caracteres.");
         return;
     }
 
-    try {
-        google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCredentialResponse
-        });
+    const userData = {
+        uuid: crypto.randomUUID(),
+        name: name,
+    };
 
-        google.accounts.id.renderButton(
-            dom.googleSigninButton,
-            { theme: "outline", size: "large", type: "standard", text: "signin_with" }
-        );
-    } catch (error) {
-        console.error("Error initializing Google Sign-In:", error);
-        alert("Ocorreu um erro ao inicializar o login com o Google.");
-        if (dom.googleSigninButton) {
-            dom.googleSigninButton.innerHTML = '<button class="control-button" disabled>Erro no Login</button>';
-        }
-    }
-}
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+    dom.usernameModal.classList.add('hidden');
 
-
-/**
- * Handles the response from Google Sign-In, sending the token to the server.
- * @param {object} response - The credential response object from Google.
- */
-function handleGoogleCredentialResponse(response) {
-    console.log("Encoded JWT ID token: " + response.credential);
-    const { isConnectionAttempted } = getState();
-    if (!isConnectionAttempted) {
+    if (!getState().isConnectionAttempted) {
         updateState('isConnectionAttempted', true);
         network.connectToServer();
     }
-    network.emitLoginWithGoogle(response.credential);
-    sound.initializeMusic();
+    network.emitAuthenticate(userData);
 }
+
 
 /**
  * Resets the game state after a player cancels an action modal.
@@ -494,8 +484,6 @@ async function handleRandomOpponentSelection() {
 
 
 export function initializeUiHandlers() {
-    initializeGoogleSignIn();
-
     document.addEventListener('showSplashScreen', showSplashScreen);
     document.addEventListener('playEndgameSequence', () => import('../story/story-controller.js').then(module => module.playEndgameSequence()));
     
@@ -532,6 +520,13 @@ export function initializeUiHandlers() {
         sound.initializeMusic();
         initializeGame('inversus', { numPlayers: 2, overrides: { 'player-2': { name: 'Inversus', aiType: 'inversus' } } });
     });
+
+    dom.pvpOnlineButton.addEventListener('click', handlePvpOnlineClick);
+    dom.confirmUsernameButton.addEventListener('click', confirmUsername);
+    dom.usernameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmUsername();
+    });
+
 
     dom.rankingButton.addEventListener('click', () => {
         network.emitGetRanking();
