@@ -14,7 +14,7 @@ function handleCredentialResponse(response) {
         socket.emit('google-login', { token: response.credential });
     } else {
         console.error("Socket not available or credential missing in response.");
-        alert("Não foi possível processar o login. Tente novamente.");
+        alert("Não foi possível processar o login. Ocorreu um erro de conexão com o servidor. Tente novamente.");
     }
 }
 
@@ -22,12 +22,15 @@ function handleCredentialResponse(response) {
  * Initializes the Google Sign-In client and renders the sign-in button.
  */
 export function initializeGoogleSignIn() {
-    window.onload = function () {
-        if (typeof google === 'undefined') {
-            console.error("Google Identity Services library not loaded.");
+    const init = () => {
+        // Check if the google object from the external script is available.
+        if (typeof google === 'undefined' || !google.accounts) {
+            // If not, try again in 100ms.
+            setTimeout(init, 100);
             return;
         }
 
+        // The library is loaded, now we can initialize it.
         google.accounts.id.initialize({
             client_id: "2701468714-udbjtea2v5d1vnr8sdsshi3lem60dvkn.apps.googleusercontent.com",
             callback: handleCredentialResponse
@@ -43,4 +46,7 @@ export function initializeGoogleSignIn() {
             console.error("Google Sign-In button container not found.");
         }
     };
+    
+    // Start the initialization check.
+    init();
 }
