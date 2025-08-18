@@ -112,6 +112,40 @@ export function connectToServer() {
              import('../ui/ui-renderer.js').then(uiRenderer => uiRenderer.showTurnIndicator());
         }
     });
+
+    socket.on('cardPlayedAnimation', async ({ casterId, targetId, card, targetSlotLabel }) => {
+        const { gameState } = getState();
+        if (!gameState) return;
+
+        // 1. Animate the card
+        // This selector might fail if the gameStateUpdate arrives before this event.
+        // It's a race condition, but we proceed assuming it works most of the time.
+        const startElement = document.querySelector(`#hand-${casterId} [data-card-id="${card.id}"]`);
+        if (startElement) {
+            const animations = await import('../ui/animations.js');
+            animations.animateCardPlay(card, startElement, targetId, targetSlotLabel);
+        }
+
+        // 2. Play sounds and announce effects, which don't depend on the startElement
+        const sound = await import('../core/sound.js');
+        const cardName = card.isLocked ? card.lockedEffect : card.name;
+        
+        const soundToPlay = cardName.toLowerCase().replace(/\s/g, '');
+        const effectsWithSounds = ['mais', 'menos', 'sobe', 'desce', 'pula', 'reversus'];
+        
+        if (card.name === 'Reversus Total' && !card.isLocked) {
+             sound.playSoundEffect('reversustotal');
+             sound.announceEffect('Reversus Total!', 'reversus-total');
+        } else if (effectsWithSounds.includes(soundToPlay)) {
+            sound.playSoundEffect(soundToPlay);
+            sound.announceEffect(cardName);
+        }
+        
+        if (card.isLocked) {
+             sound.playSoundEffect('reversustotal');
+             sound.announceEffect("REVERSUS INDIVIDUAL!", 'reversus');
+        }
+    });
     
     socket.on('lobbyChatMessage', ({ speaker, message }) => {
         addLobbyChatMessage(speaker, message);
